@@ -1,7 +1,3 @@
-﻿ID,Source URL,Target URL,HTTP Status,Link Exists,Anchor Text,Rel Attributes,Link Status,Last Checked,Notes
-BL-7A8B9C0D,https://indiaaccelerator.co/ecosystem,https://iaspaces.co,200,Yes,IA Spaces Coworking,dofollow,Live (Dofollow),2026-11-16 22:55:29,Verified parent ecosystem link
-BL-4E5F6A1B,https://inc42.com/features/coworking-spaces-india,https://iaspaces.co,200,No,,,Missing,2026-11-16 22:55:01,Page fetched successfully but no link to iaspaces.co found.
-BL-7055F2E9BB,https://indiaaccelerator.co/ecosystem,https://iaspaces.co,429,No,,,Error,2026-11-17 06:30:16,HTTP Error: 429
-BL-7514D02DC2,https://inc42.com/features/coworking-spaces-india,https://iaspaces.co,0,No,,,Blocked by robots.txt,2026-11-17 06:30:16,Robots.txt disallows automated checking
-BL-B473209F44,https://yourstory.com/companies/ia-spaces,https://iaspaces.co,200,No,,,Missing,2026-11-17 06:30:16,Page fetched successfully (200 OK) but no link to iaspaces.co found.
-BL-4B13FD719F,https://en.wikipedia.org/wiki/India_Accelerator,https://iaspaces.co,0,No,,,Blocked by robots.txt,2026-11-17 06:30:17,Robots.txt disallows automated checking
+﻿ID,Source URL,Target URL,HTTP Status,Link Exists,Anchor Text,Rel Attributes,Link Status,Last Checked,Notes,Last Seen,Team Notes
+BL-2913C925D6,https://www.indiaaccelerator.co/,https://iaspaces.co,429,Unknown,,,Could Not Verify,2026-11-17 15:04:14,Could not fetch page: HTTP 429 HTTP Error 429,2026-11-17 15:04:54,
+BL-4B772FCE7D,https://www.indiaaccelerator.co/ia-spaces,https://iaspaces.co,429,Unknown,,,Could Not Verify,2026-11-17 15:04:32,Could not fetch page: HTTP 429 HTTP Error 429,2026-11-17 15:04:54,
