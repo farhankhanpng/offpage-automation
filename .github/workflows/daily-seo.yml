@@ -61,7 +61,14 @@ jobs:
           fi
           git commit -m "Automated daily SEO report [skip ci]"
           for attempt in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            git fetch origin "${GITHUB_REF_NAME}"
+            # The cache CSVs are rebuilt from the Google Sheet on every run, so if another run
+            # changed them too, keep this run's copy ("-X theirs" = this commit during a rebase).
+            if git rebase -X theirs "origin/${GITHUB_REF_NAME}"; then
+              git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            else
+              git rebase --abort || true
+            fi
             echo "Push attempt ${attempt} failed; retrying in 10s"
             sleep 10
           done
