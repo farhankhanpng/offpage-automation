@@ -4,12 +4,20 @@
 import urllib.request
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 from ..utils.logger import get_logger
+from ..utils.time_utils import now_ist_str
 from ..utils.url_utils import normalize_url, extract_domain
 
 logger = get_logger("RSSParser")
+
+
+def _first_found(elem, paths, ns):
+    for path in paths:
+        found = elem.find(path, ns)
+        if found is not None:
+            return found
+    return None
 
 
 class RSSFeedParser:
@@ -57,7 +65,7 @@ class RSSFeedParser:
                         "published_date": pub_date,
                         "domain": extract_domain(norm_url),
                         "source": source_label,
-                        "discovered_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "discovery_date": now_ist_str()
                     })
             if items:
                 return items
@@ -89,17 +97,18 @@ class RSSFeedParser:
                         "published_date": pub_date,
                         "domain": extract_domain(norm_url),
                         "source": source_label,
-                        "discovered_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "discovery_date": now_ist_str()
                     })
 
             # Check Atom <entry>
             # Namespaces often used in Atom
             ns = {"atom": "http://www.w3.org/2005/Atom"}
-            for entry in root.findall(".//atom:entry", ns) or root.findall(".//entry"):
-                title_elem = entry.find("atom:title", ns) if "atom:" in entry.tag else entry.find("title")
-                link_elem = entry.find("atom:link", ns) if "atom:" in entry.tag else entry.find("link")
-                summary_elem = entry.find("atom:content", ns) or entry.find("atom:summary", ns) or entry.find("summary")
-                pub_elem = entry.find("atom:published", ns) or entry.find("atom:updated", ns) or entry.find("updated")
+            for entry in (root.findall(".//atom:entry", ns) or root.findall(".//entry")):
+                title_elem = _first_found(entry, ["atom:title", "title"], ns)
+                link_elem = _first_found(entry, ["atom:link", "link"], ns)
+                # Note: ElementTree elements without children are falsy, so "a or b" is unsafe here.
+                summary_elem = _first_found(entry, ["atom:content", "atom:summary", "summary"], ns)
+                pub_elem = _first_found(entry, ["atom:published", "atom:updated", "updated"], ns)
 
                 link = ""
                 if link_elem is not None:
@@ -119,15 +128,16 @@ class RSSFeedParser:
                         "published_date": pub_date,
                         "domain": extract_domain(norm_url),
                         "source": source_label,
-                        "discovered_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "discovery_date": now_ist_str()
                     })
         except Exception as e:
             logger.warning(f"Error parsing XML feed with ElementTree: {e}")
 
         return items
 
-    def fetch_and_parse(self, feed_url: str, source_label: str = "RSS") -> List[Dict[str, Any]]:
+    def fetch_and_parse(self, feed_url: str, source_label: str = "RSS") -> Optional[List[Dict[str, Any]]]:
+        """Returns None when the feed could not be fetched, [] when it had no items."""
         xml_text = self.fetch_feed_xml(feed_url)
-        if not xml_text:
-            return []
+        if xml_text is None:
+            return None
         return self.parse_feed_string(xml_text, source_label=source_label)

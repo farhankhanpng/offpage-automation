@@ -1,311 +1,201 @@
-"""IA Spaces - Daily Off-Page SEO Automation Runner.
-Orchestrates:
-1. Discovery (RSS, GDELT, Seed URLs)
-2. Brand Mention Monitor (live page inspection)
-3. Backlink Verification
-4. Transparent Opportunity Scoring (0-100)
-5. Personalised Outreach Generation ('Pending Approval')
-6. Google Sheets Synchronization (with local CSV fallback)
-7. Daily Markdown Report Generation
+"""IA Spaces - Daily Off-Page SEO pipeline.
+
+1. Discovery: public RSS feeds + GDELT (relevance-filtered) + seed URLs
+2. Fetch each candidate page once (shared polite fetcher, robots.txt respected)
+3. Brand mentions and competitor coverage on the fetched page
+4. Transparent scoring (pages that were not fetched can't qualify for outreach)
+5. Outreach drafts ("Pending Approval" - never sent)
+6. Backlink checks and brand-mention seed checks
+7. Google Sheets sync (team edits preserved) + local CSV cache
+8. Markdown report with a Run Health section
 
 Usage:
-  python run_daily.py [--dry-run]
+  python run_daily.py            # live run
+  python run_daily.py --dry-run  # fixtures only: no network, no Sheet writes
+
+Exit codes: 0 ok / degraded, 1 a required integration failed (e.g. Sheets in CI), 2 nothing worked.
 """
 
+import argparse
 import os
 import sys
-import argparse
-import csv
-from datetime import datetime
+from typing import Any, Dict, List
 
-# Add root offpage-automation directory to sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BASE_DIR)
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
-from src.utils.logger import get_logger
-from src.utils.config_loader import load_yaml_config
-from src.discovery.discovery_engine import DiscoveryEngine
-from src.mentions.mention_monitor import MentionMonitor
-from src.backlinks.backlink_monitor import BacklinkMonitor
-from src.competitors.competitor_tracker import CompetitorTracker
-from src.scoring.opportunity_scorer import OpportunityScorer
-from src.reporting.outreach_generator import OutreachDraftGenerator
-from src.reporting.report_generator import ReportGenerator
-from src.sheets.sheets_client import GoogleSheetsClient
+from src.backlinks.backlink_monitor import BacklinkMonitor  # noqa: E402
+from src.competitors.competitor_tracker import CompetitorTracker, competitors_from_config  # noqa: E402
+from src.discovery.discovery_engine import DiscoveryEngine  # noqa: E402
+from src.mentions.mention_monitor import MentionMonitor  # noqa: E402
+from src.pipeline import build_context  # noqa: E402
+from src.reporting.outreach_generator import OutreachDraftGenerator, pick_contact  # noqa: E402
+from src.scoring.opportunity_scorer import OpportunityScorer  # noqa: E402
+from src.utils.html_parser import parse_html_content  # noqa: E402
+from src.utils.logger import get_logger  # noqa: E402
+from src.utils.text_match import find_contact_emails  # noqa: E402
+from src.utils.url_utils import extract_domain  # noqa: E402
 
 logger = get_logger("DailyRunner")
 
+BRAND_PRIORITY = ["ia spaces", "iaspaces.co", "india accelerator coworking", "india accelerator spaces", "mysoho", "india accelerator"]
 
-def run_daily_pipeline(dry_run: bool = False):
+
+def pick_unlinked(mentions: List[Dict[str, Any]]):
+    """The unlinked mention to pitch: prefer the IA Spaces brand over the parent brand."""
+    unlinked = [m for m in mentions if m.get("is_unlinked")]
+    if not unlinked:
+        return None
+
+    def rank(m):
+        b = m.get("brand", "").lower()
+        return BRAND_PRIORITY.index(b) if b in BRAND_PRIORITY else len(BRAND_PRIORITY)
+    return sorted(unlinked, key=rank)[0]
+
+
+def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=None, spreadsheet=None,
+                       use_feeds: bool = True) -> Dict[str, Any]:
+    ctx = build_context(base_dir, dry_run=dry_run, fetcher=fetcher, spreadsheet=spreadsheet)
     logger.info("=" * 65)
-    logger.info("STARTING IA SPACES DAILY OFF-PAGE SEO PIPELINE")
-    logger.info(f"Mode: {'DRY RUN (Mock Offline Mode)' if dry_run else 'LIVE RUN'}")
+    logger.info(f"IA SPACES DAILY OFF-PAGE SEO PIPELINE - {'DRY RUN (fixtures)' if dry_run else 'LIVE RUN'}")
     logger.info("=" * 65)
 
-    settings = load_yaml_config(os.path.join(BASE_DIR, "config", "settings.yaml"))
-    keywords = load_yaml_config(os.path.join(BASE_DIR, "config", "keywords.yaml"))
+    brands = ctx.keywords.get("brand_terms") or ["IA Spaces", "India Accelerator", "MySOHO"]
+    competitors = competitors_from_config(ctx.competitors_cfg)
+    outreach_cfg = ctx.settings.get("outreach", {})
+    min_score = int(outreach_cfg.get("min_score", 65))
+    legacy_targets = ctx.settings.get("backlinks", {}).get("legacy_targets")
 
-    crawler_cfg = settings.get("crawler", {})
-    ua = crawler_cfg.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-    brands = keywords.get("brand_terms") or keywords.get("brand_variations")
-
-    # Initialize Modules
-    discovery = DiscoveryEngine(settings)
-    mentions_monitor = MentionMonitor(brands=brands, user_agent=ua)
-    competitor_tracker = CompetitorTracker()
-    backlink_monitor = BacklinkMonitor(user_agent=ua)
+    mentions_monitor = MentionMonitor(brands=brands, fetcher=ctx.fetcher)
+    competitor_tracker = CompetitorTracker(competitors)
+    backlink_monitor = BacklinkMonitor(fetcher=ctx.fetcher, legacy_targets=legacy_targets)
     scorer = OpportunityScorer()
-    outreach_gen = OutreachDraftGenerator()
-    report_gen = ReportGenerator(reports_dir=os.path.join(BASE_DIR, "reports"))
-    sheets_cfg = settings.get("sheets", {})
-    sheets_client = GoogleSheetsClient(
-        credentials_path=os.path.join(BASE_DIR, "secrets", "google-service-account.json"),
-        sheet_name=sheets_cfg.get("sheet_name", "IA Spaces - Off-Page SEO Master"),
-        sheet_url=sheets_cfg.get("sheet_url"),
-        offline_dir=os.path.join(BASE_DIR, "data", "sheets_offline_cache")
+    outreach = OutreachDraftGenerator(ctx.settings.get("brand_facts"))
+    discovery = DiscoveryEngine(ctx.settings, health=ctx.health,
+                                relevance_terms=list(brands) + [c["name"] for c in competitors])
+
+    disc_cfg = ctx.settings.get("discovery", {})
+    candidates = discovery.run_discovery(
+        custom_rss_feeds=disc_cfg.get("public_rss_feeds", []) if use_feeds and not dry_run else [],
+        gdelt_queries=disc_cfg.get("gdelt_queries", []) if use_feeds and not dry_run else [],
+        seed_urls=ctx.read_csv("data/competitors_seed.csv"),
     )
 
-    discovered_opps = []
-    mentions_results = []
-    backlink_results = []
-    competitor_results = []
-    outreach_drafts = []
+    opportunities: List[Dict[str, Any]] = []
+    mentions: List[Dict[str, Any]] = []
+    competitor_rows: List[Dict[str, Any]] = []
+    drafts: Dict[str, Dict[str, Any]] = {}
 
-    if dry_run:
-        logger.info("[DRY-RUN] Simulating discovery and web inspection with verified fixtures...")
-        # Mock Discovery
-        mock_candidates = [
-            {
-                "url": "https://inc42.com/features/top-coworking-spaces-in-delhi-ncr-2026/",
-                "title": "Top Coworking Spaces In Delhi NCR Supporting Fast-Growing Tech Startups",
-                "summary": "Explore flexible workspaces across Gurugram and Noida including Awfis and Innov8.",
-                "domain": "inc42.com",
-                "source": "RSS Feed (Inc42)"
-            },
-            {
-                "url": "https://yourstory.com/2026/02/tier-2-startup-ecosystems-flexible-office-boom",
-                "title": "Tier-2 Startup Ecosystems Witness Flexible Office Boom",
-                "summary": "India Accelerator and regional coworking providers are decentralizing enterprise workspaces into cities like Indore and Ahmedabad.",
-                "domain": "yourstory.com",
-                "source": "GDELT News"
-            },
-            {
-                "url": "https://entrackr.com/2026/01/gurugram-commercial-leasing-surge-managed-offices",
-                "title": "Gurugram Commercial Leasing Surges As Managed Office Spaces Dominate",
-                "summary": "Demand for managed office solutions in Golf Course Road and MG Road remains robust.",
-                "domain": "entrackr.com",
-                "source": "Manual Query"
-            }
-        ]
+    for cand in candidates:
+        url = cand["url"]
+        res = ctx.fetcher.fetch(url, source="candidate page")
+        title = cand.get("title", "")
+        page_mentions, page_comps, emails, body = [], [], [], cand.get("summary", "")
+        if res.get("ok"):
+            parsed = parse_html_content(res["html"], base_url=url)
+            title = title or parsed.get("title", "")
+            body = parsed.get("body_text", "")
+            page_mentions = mentions_monitor.inspect_content(url, res["html"], source_label=cand.get("source", "Web"))
+            page_comps = competitor_tracker.analyze_page_for_competitors(url, res["html"], page_title=title)
+            emails = find_contact_emails(res["html"], url)
+            mentions.extend(page_mentions)
+            competitor_rows.extend(page_comps)
 
-        # Mock Mention Inspection HTMLs
-        mock_page_html = (
-            "<html><head><title>Tier-2 Startup Ecosystems Witness Flexible Office Boom</title></head>"
-            "<body><p>As startups decentralize, India Accelerator and its coworking wing IA Spaces have added "
-            "over 50,000 sq ft across Indore and Ahmedabad. However, corporate tenants are demanding enterprise amenities.</p>"
-            "<a href='https://iaspaces.co/ahmedabad/'>Visit Ahmedabad Hub</a>"
-            "</body></html>"
+        score = scorer.score_prospect(
+            url=url, title=title, content_snippet=body, domain=cand.get("domain", ""),
+            has_contact_info=bool(emails), is_editorial=bool(res.get("ok")),
+            is_competitor_coverage=bool(page_comps), page_fetched=bool(res.get("ok")),
         )
-        mentions_results = mentions_monitor.inspect_content(
-            "https://yourstory.com/2026/02/tier-2-startup-ecosystems-flexible-office-boom",
-            mock_page_html,
-            source_label="Verified Web Page"
-        )
+        opportunities.append({
+            "id": cand["id"],
+            "publication": cand.get("domain") or extract_domain(url),
+            "url": url,
+            "page_title": title or "(title not available)",
+            "discovery_date": cand.get("discovery_date", ""),
+            "source": cand.get("source", ""),
+            "page_fetched": "Yes" if res.get("ok") else f"No - {res.get('status')}",
+            "opportunity_score": score["total_score"],
+            "priority": score["priority"],
+            "scoring_breakdown": score["breakdown"],
+        })
 
-        # Mock Backlink Audit
-        backlink_results = [
-            {
-                "id": "BL-7A8B9C0D",
-                "source_url": "https://indiaaccelerator.co/ecosystem",
-                "target_url": "https://iaspaces.co",
-                "http_status": 200,
-                "link_exists": "Yes",
-                "anchor_text": "IA Spaces Coworking",
-                "rel_attributes": "dofollow",
-                "link_status": "Live (Dofollow)",
-                "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "notes": "Verified parent ecosystem link"
-            },
-            {
-                "id": "BL-4E5F6A1B",
-                "source_url": "https://inc42.com/features/coworking-spaces-india",
-                "target_url": "https://iaspaces.co",
-                "http_status": 200,
-                "link_exists": "No",
-                "anchor_text": "",
-                "rel_attributes": "",
-                "link_status": "Missing",
-                "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "notes": "Page fetched successfully but no link to iaspaces.co found."
-            }
-        ]
-
-        # Score Opportunities
-        for cand in mock_candidates:
-            score_data = scorer.score_prospect(
-                url=cand["url"],
-                title=cand["title"],
-                content_snippet=cand["summary"],
-                domain=cand["domain"],
-                has_contact_info=True,
-                is_editorial=True,
-                is_competitor_coverage=("inc42" in cand["domain"])
+        if res.get("ok") and scorer.qualifies_for_outreach(score, min_score):
+            unlinked = pick_unlinked(page_mentions)
+            if unlinked:
+                angle = "Unlinked Brand Mention"
+            elif page_comps:
+                angle = outreach.angle_for(page_comps[0]["editorial_angle"])
+            else:
+                angle = outreach.angle_for(CompetitorTracker.editorial_angle(title, body))
+            contact = pick_contact(emails)
+            draft = outreach.generate_draft(
+                publication=cand.get("domain", ""), target_url=url, angle=angle,
+                contact_email=contact, contact_source="Published on the page" if contact else None,
+                page_title=title, brand=unlinked["brand"] if unlinked else "IA Spaces",
             )
-            cand_id = f"OPP-{hash(cand['url']) & 0xFFFFFF:06X}"
-            discovered_opps.append({
-                "id": cand_id,
-                "publication": cand["domain"],
-                "url": cand["url"],
-                "page_title": cand["title"],
-                "discovery_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "source": cand["source"],
-                "opportunity_score": score_data["total_score"],
-                "priority": score_data["priority"],
-                "scoring_breakdown": score_data["breakdown"]
-            })
+            drafts[draft["id"]] = draft
 
-            # Generate Outreach Draft for top score
-            if score_data["total_score"] >= 75:
-                draft = outreach_gen.generate_draft(
-                    publication=cand["domain"],
-                    target_url=cand["url"],
-                    angle="Listicle Inclusion",
-                    contact_name="Features Desk",
-                    contact_email="features@" + cand["domain"],
-                    contact_source="Editorial Masthead"
-                )
-                outreach_drafts.append(draft)
-
-    else:
-        # Live execution
-        logger.info("[LIVE] Executing discovery via public feeds and seed monitors...")
-        rss_feeds = settings.get("discovery", {}).get("public_rss_feeds", [])
-        gdelt_queries = settings.get("discovery", {}).get("gdelt_queries", [])
-
-        # Gather seed URLs from competitors_seed.csv and backlinks_seed.csv
-        seed_urls = []
-        comp_seed_path = os.path.join(BASE_DIR, "data", "competitors_seed.csv")
-        if os.path.exists(comp_seed_path):
-            with open(comp_seed_path, mode="r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    u = row.get("source_url", "").strip()
-                    if u:
-                        seed_urls.append(u)
-
-        raw_opps = discovery.run_discovery(
-            custom_rss_feeds=rss_feeds,
-            gdelt_queries=gdelt_queries,
-            seed_urls=seed_urls
-        )
-
-        for opp in raw_opps:
-            opp_url = opp["url"]
-            # Fetch page safely
-            fetch_res = mentions_monitor.fetch_page(opp_url)
-            html = fetch_res.get("html", "")
-            title = opp.get("title", "")
-
-            # 1. Check for Brand Mentions
-            if html:
-                m_found = mentions_monitor.inspect_content(opp_url, html, source_label=opp.get("source", "Web"))
-                mentions_results.extend(m_found)
-
-                # 2. Check for Competitor Mentions & Editorial Angles
-                c_found = competitor_tracker.analyze_page_for_competitors(opp_url, html, page_title=title)
-                competitor_results.extend(c_found)
-
-            # 3. Score Opportunity
-            score_data = scorer.score_prospect(
-                url=opp_url,
-                title=title,
-                content_snippet=opp.get("summary", ""),
-                domain=opp.get("domain", ""),
-                has_contact_info=True,
-                is_editorial=True,
-                is_competitor_coverage=len([c for c in competitor_results if c.get("source_url") == opp_url]) > 0
+    # Known coverage pages: brand mentions without a link become reclamation drafts
+    for row in ctx.read_csv("data/mentions_seed.csv"):
+        url = row.get("source_url", "")
+        if not url:
+            continue
+        found = mentions_monitor.analyze_url(url, source_label=row.get("source") or "Seed Mention")
+        mentions.extend(found)
+        unlinked = pick_unlinked(found)
+        if unlinked:
+            res = ctx.fetcher.fetch(url, source="mention check")
+            contact = pick_contact(find_contact_emails(res.get("html", ""), url))
+            draft = outreach.generate_draft(
+                publication=extract_domain(url), target_url=unlinked["mentioned_url"],
+                angle="Unlinked Brand Mention", contact_email=contact,
+                contact_source="Published on the page" if contact else None,
+                page_title=unlinked.get("page_title", ""), brand=unlinked["brand"],
             )
-            opp["opportunity_score"] = score_data["total_score"]
-            opp["priority"] = score_data["priority"]
-            opp["scoring_breakdown"] = score_data["breakdown"]
-            opp["page_title"] = title or "Editorial Coverage"
-            opp["publication"] = opp.get("domain", "")
-            discovered_opps.append(opp)
+            drafts[draft["id"]] = draft
 
-            # 4. Generate Outreach Draft for strong prospects (score >= 60)
-            if score_data["total_score"] >= 60:
-                draft = outreach_gen.generate_draft(
-                    publication=opp.get("domain", ""),
-                    target_url=opp_url,
-                    angle="Listicle Inclusion",
-                    contact_name="Editorial Features Desk",
-                    contact_email="editorial@" + opp.get("domain", "media.in"),
-                    contact_source="Public Masthead"
-                )
-                outreach_drafts.append(draft)
+    backlinks = backlink_monitor.audit_backlink_list(ctx.read_csv("data/backlinks_seed.csv"))
 
-        # Check Seed Backlinks
-        seed_bl_path = os.path.join(BASE_DIR, "data", "backlinks_seed.csv")
-        if os.path.exists(seed_bl_path):
-            with open(seed_bl_path, mode="r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                backlink_results = backlink_monitor.audit_backlink_list(list(reader))
+    # De-duplicate mentions by stable ID
+    mentions = list({m["id"]: m for m in mentions}.values())
+    competitor_rows = list({c["id"]: c for c in competitor_rows}.values())
+    draft_list = list(drafts.values())
 
-        # Check Seed Brand Mentions
-        seed_mentions_path = os.path.join(BASE_DIR, "data", "mentions_seed.csv")
-        if os.path.exists(seed_mentions_path):
-            with open(seed_mentions_path, mode="r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    u = row.get("source_url", "").strip()
-                    if u:
-                        m_res = mentions_monitor.analyze_url(u, source_label=row.get("source", "Seed Mention"))
-                        for m in m_res:
-                            if m.get("brand") and m.get("brand") != "N/A":
-                                if not any(existing.get("id") == m.get("id") for existing in mentions_results):
-                                    mentions_results.append(m)
+    # Every tab is synced every run (even with no new rows) so purges and retention always apply.
+    s = ctx.sheets
+    s.sync_tab("Opportunities", opportunities)
+    s.sync_tab("Brand_Mentions", mentions)
+    s.sync_tab("Competitors", competitor_rows)
+    s.sync_tab("Backlinks", backlinks)
+    s.sync_tab("Outreach", draft_list)
 
-    # Sync to Sheets / Local Cache
-    logger.info("Synchronizing data to Google Sheets tabs & local CSV cache...")
-    if discovered_opps:
-        sheets_client.sync_tab("Opportunities", discovered_opps, key_field="ID")
-    if mentions_results:
-        sheets_client.sync_tab("Brand_Mentions", mentions_results, key_field="ID")
-    if competitor_results:
-        sheets_client.sync_tab("Competitors", competitor_results, key_field="ID")
-    if backlink_results:
-        sheets_client.sync_tab("Backlinks", backlink_results, key_field="ID")
-    if outreach_drafts:
-        sheets_client.sync_tab("Outreach", outreach_drafts, key_field="ID")
+    s.sync_tab("Dashboard", ctx.dashboard({
+        "Total Opportunities Discovered": len(opportunities),
+        "Candidate Pages Fetched": sum(1 for o in opportunities if o["page_fetched"] == "Yes"),
+        "Active Monitored Backlinks": sum(1 for b in backlinks if str(b.get("link_status", "")).startswith("Live")),
+        "Backlink Sources Checked": len(backlinks),
+        "Brand Mentions Tracked": len(mentions),
+        "Unlinked Brand Mentions": sum(1 for m in mentions if m.get("is_unlinked")),
+        "Competitor Gaps Tracked": len(competitor_rows),
+        "Outreach Drafts Pending Approval": len(draft_list),
+    }), key_field="Metric")
 
-    # Update Dashboard Tab
-    dashboard_metrics = [
-        {"Metric": "Total Opportunities Discovered", "Value": str(len(discovered_opps)), "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-        {"Metric": "Active Monitored Backlinks", "Value": str(len(backlink_results)), "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-        {"Metric": "Brand Mentions Tracked", "Value": str(len(mentions_results)), "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-        {"Metric": "Competitor Gaps Tracked", "Value": str(len(competitor_results)), "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-        {"Metric": "Outreach Drafts Pending Approval", "Value": str(len(outreach_drafts)), "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
-        {"Metric": "System Status", "Value": "Healthy / Operational", "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    ]
-    sheets_client.sync_tab("Dashboard", dashboard_metrics, key_field="Metric")
-
-    # Generate Daily Markdown Report
-    report_file = report_gen.generate_daily_report(
-        opportunities=discovered_opps,
-        mentions=mentions_results,
-        backlinks=backlink_results,
-        outreach_drafts=outreach_drafts
+    report = ctx.reports.generate_daily_report(
+        opportunities=opportunities, mentions=mentions, backlinks=backlinks, outreach_drafts=draft_list,
+        health=ctx.health, sheets_status=ctx.sheets_status(), label=ctx.label,
     )
+    s.log_activity("DAILY_RUN", ctx.health.status().upper(), ctx.health.summary_line())
+    s.flush()
 
-    logger.info("=" * 65)
-    logger.info(f"DAILY PIPELINE COMPLETED SUCCESSFULLY! Report: {report_file}")
-    logger.info("=" * 65)
-    return report_file
+    logger.info(f"DAILY PIPELINE FINISHED - status {ctx.health.status()} ({ctx.health.summary_line()}). Report: {report}")
+    return {"report": report, "health": ctx.health, "opportunities": opportunities, "mentions": mentions,
+            "backlinks": backlinks, "drafts": draft_list, "competitors": competitor_rows}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="IA Spaces Daily Off-Page SEO Pipeline")
-    parser.add_argument("--dry-run", action="store_true", help="Run with mock offline fixtures")
+    parser.add_argument("--dry-run", action="store_true", help="Use fixture pages; no network, no Sheet writes")
     args = parser.parse_args()
-
-    run_daily_pipeline(dry_run=args.dry_run)
+    result = run_daily_pipeline(dry_run=args.dry_run)
+    sys.exit(result["health"].exit_code())

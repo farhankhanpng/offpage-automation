@@ -1,135 +1,116 @@
-"""Backlink Monitor for verifying known backlink source pages.
-Checks HTTP status, link presence, anchor text, and rel attributes (nofollow, sponsored, ugc).
+"""Backlink Monitor: verifies known backlink source pages.
+
+Checks HTTP status, link presence, anchor text and rel attributes (nofollow, sponsored, ugc).
+A page that could not be fetched is reported as "Could Not Verify", never as "Missing".
+Links that point to a legacy page instead of iaspaces.co (for example
+indiaaccelerator.co/ia-spaces/) are called out in Notes.
 """
 
-import urllib.request
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from ..utils.logger import get_logger
-from ..utils.url_utils import normalize_url, extract_domain, generate_stable_id
+from ..utils.fetcher import PoliteFetcher
 from ..utils.html_parser import parse_html_content
-from ..utils.rate_limiter import PoliteRateLimiter
+from ..utils.logger import get_logger
+from ..utils.time_utils import now_ist_str
+from ..utils.url_utils import extract_domain, generate_stable_id, normalize_url
 
 logger = get_logger("BacklinkMonitor")
 
 TARGET_DOMAINS = ["iaspaces.co", "www.iaspaces.co"]
+DEFAULT_LEGACY_TARGETS = ["indiaaccelerator.co/ia-spaces", "indiaaccelerator.co/coworking", "indiaaccelerator.co/spaces"]
 
 
 class BacklinkMonitor:
-    """Verifies backlink health on designated source pages."""
-
     def __init__(
         self,
         target_domains: Optional[List[str]] = None,
-        rate_limiter: Optional[PoliteRateLimiter] = None,
-        user_agent: str = "IASpaces-OffPage-Bot/1.0",
-        timeout: int = 15
+        fetcher: Optional[PoliteFetcher] = None,
+        legacy_targets: Optional[List[str]] = None,
+        user_agent: str = "IASpaces-OffPage-Bot/1.0 (+https://iaspaces.co)",
+        timeout: int = 15,
     ):
-        self.target_domains = target_domains or TARGET_DOMAINS
-        self.rate_limiter = rate_limiter or PoliteRateLimiter(default_delay=2.0, user_agent=user_agent)
-        self.user_agent = user_agent
-        self.timeout = timeout
+        self.target_domains = [d.lower() for d in (target_domains or TARGET_DOMAINS)]
+        self.legacy_targets = [t.lower() for t in (legacy_targets or DEFAULT_LEGACY_TARGETS)]
+        self.fetcher = fetcher or PoliteFetcher(user_agent=user_agent, timeout=timeout)
+
+    def _legacy_links(self, links: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        out = []
+        for lk in links:
+            href = normalize_url(lk.get("href", "")).lower().replace("://www.", "://")
+            if any(t in href for t in self.legacy_targets):
+                out.append(lk)
+        return out
 
     def check_source_page(self, source_url: str, expected_target: Optional[str] = None) -> Dict[str, Any]:
-        """Fetch source page and check if a link to IA Spaces is active."""
         norm_source = normalize_url(source_url)
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
         record: Dict[str, Any] = {
             "id": generate_stable_id(norm_source, prefix="BL"),
             "source_url": norm_source,
             "target_url": expected_target or "https://iaspaces.co",
             "http_status": 0,
-            "link_exists": "No",
+            "link_exists": "Unknown",
             "anchor_text": "",
             "rel_attributes": "",
-            "last_checked": now_str,
-            "link_status": "Not Checked",
-            "notes": ""
+            "last_checked": now_ist_str(),
+            "link_status": "Could Not Verify",
+            "notes": "",
         }
 
-        self.rate_limiter.wait_if_needed(norm_source)
-        if not self.rate_limiter.is_allowed_by_robots(norm_source):
-            record["link_status"] = "Blocked by robots.txt"
-            record["notes"] = "Robots.txt disallows automated checking"
+        res = self.fetcher.fetch(norm_source, source="backlink check")
+        record["http_status"] = res.get("http_code", 0)
+        if not res.get("ok"):
+            record["notes"] = f"Could not fetch page: {res.get('status')} {res.get('error', '')}".strip()
             return record
 
-        req = urllib.request.Request(
-            norm_source,
-            headers={
-                "User-Agent": self.user_agent,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            }
-        )
+        notes = []
+        if normalize_url(res.get("final_url", "")) not in ("", norm_source):
+            notes.append(f"Source redirected to {res['final_url']}")
 
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                status_code = resp.getcode()
-                final_url = resp.geturl()
-                html = resp.read().decode("utf-8", errors="replace")
-                record["http_status"] = status_code
+        parsed = parse_html_content(res["html"], base_url=res.get("final_url") or norm_source)
+        links = parsed.get("links", [])
+        found = [lk for lk in links if extract_domain(lk.get("href", "")) in self.target_domains]
 
-                if normalize_url(final_url) != norm_source:
-                    record["notes"] = f"Source redirected to {final_url}"
-        except urllib.error.HTTPError as e:
-            record["http_status"] = e.code
-            record["link_status"] = "Error"
-            record["notes"] = f"HTTP Error: {e.code}"
-            return record
-        except Exception as e:
-            record["link_status"] = "Error"
-            record["notes"] = f"Connection error: {str(e)[:100]}"
-            return record
-
-        parsed = parse_html_content(html, base_url=norm_source)
-        found_links = []
-
-        for lk in parsed.get("links", []):
-            href = lk.get("href", "")
-            domain = extract_domain(href)
-            if domain in self.target_domains:
-                found_links.append(lk)
-
-        if not found_links:
+        if not found:
             record["link_exists"] = "No"
             record["link_status"] = "Missing"
-            record["notes"] = "Page fetched successfully (200 OK) but no link to iaspaces.co found."
+            legacy = self._legacy_links(links)
+            if legacy:
+                notes.append(
+                    f"Links to legacy page {legacy[0].get('href')} (anchor '{legacy[0].get('anchor_text', '')}') "
+                    f"instead of iaspaces.co - update the link or 301-redirect that page"
+                )
+            else:
+                notes.append("Page fetched but no link to iaspaces.co found.")
+            record["notes"] = "; ".join(notes)
             return record
 
-        # Link exists! Check first matching link or target match
-        best_match = found_links[0]
+        best = found[0]
         if expected_target:
-            norm_expected = normalize_url(expected_target)
-            for fl in found_links:
-                if normalize_url(fl.get("href", "")) == norm_expected:
-                    best_match = fl
-                    break
+            want = normalize_url(expected_target)
+            best = next((lk for lk in found if normalize_url(lk.get("href", "")) == want), best)
 
-        record["link_exists"] = "Yes"
-        record["target_url"] = best_match.get("href", "")
-        record["anchor_text"] = best_match.get("anchor_text", "")
-        record["rel_attributes"] = best_match.get("rel", "") or "dofollow"
-
-        # Categorize status
-        rel_lower = record["rel_attributes"].lower()
-        if "nofollow" in rel_lower or "sponsored" in rel_lower or "ugc" in rel_lower:
+        rel = (best.get("rel") or "").strip()
+        record.update(
+            link_exists="Yes",
+            target_url=best.get("href", ""),
+            anchor_text=best.get("anchor_text", ""),
+            rel_attributes=rel or "(none - followed)",
+        )
+        rel_lower = rel.lower()
+        if any(x in rel_lower for x in ("nofollow", "sponsored", "ugc")):
             record["link_status"] = "Live (Nofollow/Sponsored/UGC)"
         else:
-            record["link_status"] = "Live (Dofollow)"
-
-        record["notes"] = f"Verified active link with anchor '{record['anchor_text']}'"
+            record["link_status"] = "Live (Followed)"
+        notes.append(f"Verified link with anchor '{record['anchor_text']}'")
+        record["notes"] = "; ".join(notes)
         return record
 
     def audit_backlink_list(self, backlinks: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-        """Audit a batch of backlink sources."""
         results = []
         for item in backlinks:
-            source = item.get("source_url", "")
-            target = item.get("target_url", "")
+            source = (item.get("source_url") or "").strip()
             if not source:
                 continue
             logger.info(f"Auditing backlink source: {source}")
-            res = self.check_source_page(source, expected_target=target)
-            results.append(res)
+            results.append(self.check_source_page(source, expected_target=(item.get("target_url") or "").strip() or None))
         return results

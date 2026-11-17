@@ -1,30 +1,54 @@
-"""Transparent Opportunity Scoring Engine (0-100 scale).
-Evaluates prospects purely on verified topical relevance, geographic focus,
-editorial authenticity, and outreach viability without fabricated metrics.
+"""Transparent Opportunity Scoring Engine (0-100).
+
+Six documented pillars, all matched as whole words on the page's title and opening text:
+  1. Coworking / CRE relevance ........ 0-30
+  2. India relevance .................. 0-15
+  3. Editorial content ................ 0-15
+  4. Coverage gap (competitor/listicle) 0-20
+  5. Contribution route ............... 0-10
+  6. Contact found on the page ........ 0-10
+
+Gates (so unrelated or unread pages can never qualify for outreach):
+  - no coworking/CRE term at all      -> total capped at 25, priority "Not Relevant";
+  - the page was not actually fetched -> total capped at 49, priority "Unverified";
+  - spam signals (coupon, casino, ...) -> total 0, priority "Rejected".
+No third-party authority metrics (DA/DR/traffic) are estimated.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict
+from urllib.parse import urlparse
+
+from ..utils.text_match import matching_phrases
 
 RELEVANT_CRE_KEYWORDS = [
-    "coworking", "managed office", "flexible workspace", "commercial real estate",
-    "office space", "incubation", "accelerator", "proptech", "startup ecosystem",
-    "workplace", "hybrid work", "cre"
+    "coworking", "co-working", "coworking space", "managed office", "managed offices",
+    "flexible workspace", "flexible workspaces", "flex space", "flexible office",
+    "shared office", "office space", "office spaces", "commercial real estate",
+    "office leasing", "workspace", "workspaces", "incubation", "incubator",
+    "accelerator", "proptech", "hybrid work", "startup ecosystem",
 ]
 
 INDIA_KEYWORDS = [
-    "india", "delhi", "gurugram", "gurgaon", "noida", "bengaluru", "bangalore",
-    "mumbai", "pune", "hyderabad", "ahmedabad", "indore", "jaipur", "lucknow", "tier-2"
+    "india", "indian", "delhi", "ncr", "gurugram", "gurgaon", "noida", "bengaluru",
+    "bangalore", "mumbai", "pune", "hyderabad", "chennai", "ahmedabad", "indore",
+    "jaipur", "lucknow", "chandigarh", "surat", "vadodara", "rajkot", "tier-2", "tier 2",
 ]
 
-EDITORIAL_INDICATORS = [
-    "article", "story", "news", "insights", "blog", "roundup", "opinion",
-    "interview", "feature", "analysis", "report"
+INDIAN_PUBLICATION_DOMAINS = [
+    "inc42.com", "yourstory.com", "entrackr.com", "livemint.com", "indiatimes.com",
+    "economictimes.com", "business-standard.com", "thehindubusinessline.com",
+    "moneycontrol.com", "financialexpress.com", "businessworld.in", "realtynxt.com",
+    "thepropertytimes.in", "outlookbusiness.com", "rprealtyplus.com",
 ]
+
+EDITORIAL_WORDS = ["news", "story", "feature", "analysis", "report", "interview", "opinion", "insights", "guide"]
+EDITORIAL_PATH_HINTS = ["/news", "/story", "/stories", "/features", "/feature", "/blog", "/article", "/insights", "/opinion"]
+LISTICLE_WORDS = ["best", "top", "list", "roundup", "options", "alternatives", "comparison"]
+CONTRIBUTION_WORDS = ["contributor", "guest post", "write for us", "submit", "opinion", "op-ed", "contact the editor"]
+SPAM_SIGNALS = ["coupon", "promo code", "casino", "gambling", "betting", "free backlinks", "directory submission"]
 
 
 class OpportunityScorer:
-    """Scores outreach and backlink prospects with full transparency."""
-
     def score_prospect(
         self,
         url: str,
@@ -32,90 +56,77 @@ class OpportunityScorer:
         content_snippet: str = "",
         domain: str = "",
         has_contact_info: bool = False,
-        is_editorial: bool = True,
-        is_competitor_coverage: bool = False
+        is_editorial: bool = False,
+        is_competitor_coverage: bool = False,
+        page_fetched: bool = True,
     ) -> Dict[str, Any]:
-        """Calculate transparent 0-100 score based on 6 documented pillars."""
-        text = f"{title} {content_snippet} {url}".lower()
+        text = f"{title} {content_snippet[:4000]}"
+        path = urlparse(url).path.lower() if url else ""
+        domain = (domain or urlparse(url).netloc or "").lower()
 
-        # 1. Relevance to Coworking / CRE (0-25 pts)
-        cre_matches = [k for k in RELEVANT_CRE_KEYWORDS if k in text]
-        if len(cre_matches) >= 3:
-            cre_score = 25
-        elif len(cre_matches) == 2:
-            cre_score = 18
-        elif len(cre_matches) == 1:
-            cre_score = 10
-        else:
-            cre_score = 0
+        # Spam gate
+        if matching_phrases(f"{text} {path.replace('-', ' ')}", SPAM_SIGNALS):
+            return self._result(0, "Rejected", 0, 0, 0, 0, 0, 0, note="spam signals")
 
-        # 2. Relevance to India (0-20 pts)
-        india_matches = [k for k in INDIA_KEYWORDS if k in text] or (".in" in domain or "indiatimes" in domain or "inc42" in domain or "yourstory" in domain)
-        if isinstance(india_matches, list):
-            if len(india_matches) >= 2:
-                india_score = 20
-            elif len(india_matches) == 1:
-                india_score = 12
-            else:
-                india_score = 0
-        else:
-            india_score = 20 if india_matches else 0
+        # 1. CRE relevance (0-30)
+        cre = matching_phrases(text, RELEVANT_CRE_KEYWORDS)
+        cre_score = 0 if not cre else (10 if len(cre) == 1 else 20 if len(cre) == 2 else 30)
 
-        # 3. Evidence of Genuine Editorial Content (0-20 pts)
-        # Avoid link farms, scrape directories, or coupon aggregators
-        non_editorial_signals = ["coupon", "discount", "gambling", "casino", "free-backlink", "directory-submission"]
-        if any(bad in text for bad in non_editorial_signals):
-            editorial_score = 0
-        elif is_editorial:
-            editorial_matches = [e for e in EDITORIAL_INDICATORS if e in text]
-            editorial_score = 20 if len(editorial_matches) >= 1 else 14
-        else:
-            editorial_score = 8
+        # 2. India relevance (0-15)
+        india = matching_phrases(text, INDIA_KEYWORDS)
+        india_score = 0 if not india else (8 if len(india) == 1 else 15)
+        if india_score < 15 and (domain.endswith(".in") or any(domain.endswith(d) for d in INDIAN_PUBLICATION_DOMAINS)):
+            india_score = min(15, india_score + 5)
 
-        # 4. Existing Relevant Coverage / Listicle Gap (0-15 pts)
+        # 3. Editorial content (0-15)
+        editorial_hits = matching_phrases(text, EDITORIAL_WORDS) or [h for h in EDITORIAL_PATH_HINTS if h in path]
+        editorial_score = 15 if (is_editorial and editorial_hits) else 10 if (is_editorial or editorial_hits) else 0
+
+        # 4. Coverage gap (0-20)
         if is_competitor_coverage:
-            coverage_score = 15
-        elif any(k in text for k in ["list", "best", "top", "roundup", "options"]):
+            coverage_score = 20
+        elif matching_phrases(title, LISTICLE_WORDS):
             coverage_score = 12
         else:
-            coverage_score = 7
+            coverage_score = 0
 
-        # 5. Likelihood of Legitimate Contribution (0-10 pts)
-        # Publications covering founder stories, guest contributions, or PR quotes
-        guest_op_signals = ["contributor", "guest post", "opinion", "editorial", "contact editor", "write for us", "insights"]
-        if any(sig in text for sig in guest_op_signals):
-            contrib_score = 10
-        elif is_editorial:
-            contrib_score = 7
-        else:
-            contrib_score = 3
+        # 5. Contribution route (0-10)
+        contrib_score = 10 if matching_phrases(text, CONTRIBUTION_WORDS) else 0
 
-        # 6. Contact Information Verification (0-10 pts)
+        # 6. Contact found on page (0-10)
         contact_score = 10 if has_contact_info else 0
 
-        total_score = min(100, cre_score + india_score + editorial_score + coverage_score + contrib_score + contact_score)
-
-        # Determine priority tier
-        if total_score >= 75:
-            priority = "High"
-        elif total_score >= 50:
-            priority = "Medium"
+        total = cre_score + india_score + editorial_score + coverage_score + contrib_score + contact_score
+        if cre_score == 0:
+            total, priority = min(total, 25), "Not Relevant"
+        elif not page_fetched:
+            total, priority = min(total, 49), "Unverified"
         else:
-            priority = "Low"
+            priority = "High" if total >= 75 else "Medium" if total >= 50 else "Low"
 
+        return self._result(total, priority, cre_score, india_score, editorial_score,
+                            coverage_score, contrib_score, contact_score)
+
+    @staticmethod
+    def _result(total, priority, cre, india, editorial, coverage, contrib, contact, note: str = ""):
         breakdown = (
-            f"CRE: {cre_score}/25, India: {india_score}/20, Editorial: {editorial_score}/20, "
-            f"Coverage: {coverage_score}/15, Viability: {contrib_score}/10, Contact: {contact_score}/10"
+            f"CRE: {cre}/30, India: {india}/15, Editorial: {editorial}/15, "
+            f"Coverage: {coverage}/20, Contribution: {contrib}/10, Contact: {contact}/10"
         )
-
+        if note:
+            breakdown += f" ({note})"
         return {
-            "total_score": total_score,
+            "total_score": int(total),
             "priority": priority,
             "breakdown": breakdown,
-            "cre_score": cre_score,
-            "india_score": india_score,
-            "editorial_score": editorial_score,
-            "coverage_score": coverage_score,
-            "viability_score": contrib_score,
-            "contact_score": contact_score
+            "cre_score": cre,
+            "india_score": india,
+            "editorial_score": editorial,
+            "coverage_score": coverage,
+            "viability_score": contrib,
+            "contact_score": contact,
         }
+
+    @staticmethod
+    def qualifies_for_outreach(score: Dict[str, Any], threshold: int = 65) -> bool:
+        return score.get("priority") in ("High", "Medium") and score.get("total_score", 0) >= threshold

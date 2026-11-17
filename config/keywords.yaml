@@ -1,7 +1,9 @@
 # Keywords, Brand Variations & Industry Topics for Monitoring
+# brand_terms are matched as whole words/phrases (case-insensitive).
 brand_terms:
   - "IA Spaces"
   - "iaspaces.co"
+  - "India Accelerator"
   - "India Accelerator Coworking"
   - "India Accelerator Spaces"
   - "MySOHO"

@@ -1,138 +1,157 @@
-# IA Spaces Off-Page SEO Automation System 🚀
+# IA Spaces Off-Page SEO Automation
 
-A Python-based Off-Page SEO & Opportunity Automation System built for **IA Spaces** (`https://iaspaces.co`), the coworking and managed office arm of **India Accelerator**.
+Python automation for **IA Spaces** (`https://iaspaces.co`), the coworking network of **India Accelerator**.
+It finds coverage and outreach opportunities, checks brand mentions, backlinks, competitor coverage and
+directory listings, drafts outreach emails for human approval, and syncs everything to Google Sheets.
+No paid APIs. Runs on Windows (PowerShell) and in GitHub Actions.
 
-This system runs on **Windows 11 (PowerShell)**, requires **zero paid APIs or services**, and automatically synchronizes with **Google Sheets** (with an automatic offline local CSV/JSON cache fallback).
-
----
-
-## 📋 System Features
-
-- **Module 1: Opportunity Discovery**  
-  Monitors Google Alerts RSS feeds, public business feeds (Inc42, YourStory, Entrackr, LiveMint), GDELT 2.0 public document search, and manual verification search query generators.
-- **Module 2: Brand Mention Monitor**  
-  Tracks brand mentions (`IA Spaces`, `India Accelerator`, `India Accelerator Coworking`, `MySOHO`). Inspects live HTML to verify whether a hyperlink to `iaspaces.co` exists before labeling mentions as linked or unlinked.
-- **Module 3: Backlink Health Monitor**  
-  Checks verified backlink source pages, verifying target URL, HTTP status, anchor text, and `rel` attributes (`dofollow`, `nofollow`, `sponsored`, `ugc`).
-- **Module 4: Competitor Opportunity Tracker**  
-  Detects editorial coverage of competitors (*Awfis, Smartworks, Innov8, IndiQube, WeWork India*) and flags editorial angles (listicles, funding commentary, Tier-2 expansion narratives).
-- **Module 5: Local Citation & Directory Tracker**  
-  Audits directory listings (Justdial, IndiaMART, Sulekha, Coworker) against canonical master NAP data for 15+ hubs. Enforces strict 1-to-1 hub address/phone pairing.
-- **Module 6: Transparent Opportunity Scoring (0–100)**  
-  Calculates objective scores using 6 clear pillars: Coworking/CRE relevance (25 pts), India relevance (20 pts), Editorial authenticity (20 pts), Existing coverage (15 pts), Viability (10 pts), and Contact verification (10 pts). **Never fabricates DA/DR or traffic metrics.**
-- **Module 7: Google Sheets Integration & Offline Resilience**  
-  Syncs with Google Sheets via `gspread` across 8 dedicated tabs (`Dashboard`, `Opportunities`, `Backlinks`, `Brand_Mentions`, `Competitors`, `Outreach`, `Citations`, `Activity_Log`). If credentials are not present, seamlessly stores data in `data/sheets_offline_cache/*.csv`.
-- **Module 8: Personalized Outreach Generator**  
-  Drafts custom outreach templates for high-scoring prospects with default status **`Pending Approval`**. **Never dispatches emails automatically.**
-- **Module 9: Executive Markdown Reporting**  
-  Generates daily discovery and weekly audit reports formatted in Markdown under `reports/`.
-- **Module 10: Security & Reliability**  
-  Polite rate limiter (2.0s delay), `robots.txt` compliance, SSRF sanitization, credentials protected in `.gitignore`, and comprehensive unit tests.
+> **Nothing is ever sent.** Outreach drafts are created with status `Pending Approval`.
+> Sending is a separate, manual step (`scripts/send_outreach_smtp.py` in the main project).
 
 ---
 
-## 🛠️ Prerequisites & Setup (Windows 11)
+## What runs
 
-### 1. Requirements
-- Python 3.12 (already installed on your machine)
-- Windows PowerShell
+### Daily (`run_daily.py`, 09:00 IST)
+1. **Discovery**: public RSS feeds (Inc42, YourStory, Entrackr, Mint) and GDELT, plus the pages in
+   `data/competitors_seed.csv`. Feed items are only kept if the headline/summary mentions a tracked brand,
+   a competitor or a coworking/CRE term.
+2. **Each candidate page is fetched once** by a shared polite fetcher (robots.txt respected, 3 s per site,
+   retries on 429/503).
+3. **Brand mentions** (whole-word match) and **competitor coverage** are read from the fetched page.
+4. **Scoring** (0-100, documented below). Pages that couldn't be fetched are marked *Unverified* and can't
+   get an outreach draft.
+5. **Outreach drafts** for strong, fetched pages, plus link-request drafts for every known article that
+   mentions the brand without linking to iaspaces.co (`data/mentions_seed.csv`). Contact emails are only
+   filled in when they are published on the page.
+6. **Backlink checks** for `data/backlinks_seed.csv`. Links that still point at the legacy
+   `indiaaccelerator.co/ia-spaces/` page are flagged.
+7. **Sync** to Google Sheets and the local cache, then a Markdown report in `reports/`.
 
-### 2. Verify Your Python Environment
-Open PowerShell and navigate to the project directory:
+### Weekly (`run_weekly.py`, Mondays 09:30 IST)
+1. **Directory listings**: each URL in `data/citations_seed.csv` is fetched and checked against the master
+   NAP (`data/ia-spaces-nap-master.csv`) for the phone number, PIN code and a link to iaspaces.co.
+   Listings that block bots are marked *Could Not Verify* (check them by hand); placeholder URLs are
+   marked *Placeholder URL*.
+2. **Competitor coverage** on the pages in `data/competitors_seed.csv` (fetched pages only).
+3. **Backlink checks**, sync, and `reports/weekly-report-YYYY-MM-DD.md`.
+
+### Run health
+Every report starts with a **Run Health** section, and the Dashboard tab shows `Healthy`, `Degraded` or
+`Failing` with the number of successful checks. Exit codes: `0` ok/degraded, `1` a required integration
+failed (Sheets in GitHub Actions), `2` no check succeeded. A failed scheduled run makes GitHub email the
+repository owner.
+
+---
+
+## Google Sheets
+
+Tabs: `Dashboard`, `Opportunities`, `Backlinks`, `Brand_Mentions`, `Competitors`, `Outreach`,
+`Citations`, `Activity_Log` (created automatically).
+
+- **Your edits are kept.** `Approval Status` (Outreach tab) and `Team Notes` (every data tab) belong to
+  your team: the pipeline never overwrites a value you set there.
+- **Rows are merged, not wiped.** Each run combines the Sheet, the local cache and new results by ID, so
+  local runs and GitHub runs don't erase each other.
+- **Removing rows:** add the ID to `data/purged_ids.txt`. It disappears from the Sheet and cache on the next
+  run and is never re-added.
+- **Retention:** rows not seen for `retention_days` (90) are removed unless someone annotated them.
+- Rows written before v1.1.0 (no `Last Seen` value) are removed automatically on the first v1.1.0 run,
+  unless they were annotated. This clears the test data and duplicates found in the 2026-11-17 audit.
+
+### Setup
+1. In Google Cloud, enable the **Google Sheets API** (and the **Google Drive API** only if you open the
+   Sheet by name), and create a service account with a JSON key.
+2. Save the key as `secrets/google-service-account.json` (git-ignored).
+3. Create a spreadsheet named `IA Spaces - Off-Page SEO Master` and share it with the service account's
+   `client_email` as **Editor**.
+4. Recommended: copy the Sheet ID from its URL (`docs.google.com/spreadsheets/d/<ID>/edit`) into
+   `GOOGLE_SHEET_ID` in `.env` (and as a GitHub Actions *variable*, see below).
+
+### GitHub Actions
+- Secret `GOOGLE_SERVICE_ACCOUNT_JSON`: the full JSON key contents.
+- Variable `GOOGLE_SHEET_ID` (Settings → Secrets and variables → Actions → Variables): the Sheet ID.
+- Both workflows run the tests first, share one queue (they never push at the same time), fail if Sheets
+  can't be reached, and commit `reports/` and the cache back to `main`.
+- **Run it in one place.** If you also run locally, `git pull` before you start and push right after.
+  The Sheet is the shared copy either way.
+
+---
+
+## Running locally (Windows PowerShell)
+
 ```powershell
 cd C:\Users\kfarh\Downloads\claude-seo-main\claude-seo-main\offpage-automation
-python --version
-```
-
-*(Optional)* Install external convenience packages:
-```powershell
 pip install -r requirements.txt
+copy .env.example .env        # optional: adjust settings
+python run_daily.py --dry-run # fixtures only: no network, nothing written to the Sheet
+python run_daily.py           # live
+python run_weekly.py          # live
+python -m pytest -q           # tests
 ```
-> **Note:** The entire system is architected with Python standard library fallbacks (`xml.etree.ElementTree`, `html.parser`, `urllib.request`). It runs and passes all tests even before installing external packages!
+
+Dry runs use built-in fixture pages and write only to `data/dry_run_cache/` and `reports/dry-run/`
+(both git-ignored). They never touch the Sheet or the real cache.
 
 ---
 
-## ⚡ Quick Start: Running the System
+## Scoring (0-100)
 
-### Run the Daily Pipeline (Discovery, Mentions, Backlinks, Outreach)
-```powershell
-python run_daily.py --dry-run
-```
-For live online web fetching:
-```powershell
-python run_daily.py
-```
+| Pillar | Points | Signal (whole-word matches on the page's title and text) |
+|---|---|---|
+| Coworking / CRE relevance | 0-30 | coworking, managed office, flexible workspace, office space, ... |
+| India relevance | 0-15 | India and city names; Indian publication domains get a small boost |
+| Editorial content | 0-15 | the page was fetched and looks editorial (news, feature, guide, ...) |
+| Coverage gap | 0-20 | competitor named/linked on the page, or a list-style headline |
+| Contribution route | 0-10 | contributor / guest post / submit wording |
+| Contact on page | 0-10 | an email address on the publication's own domain |
 
-### Run the Weekly Pipeline (Citations Audit & Competitor Gaps)
-```powershell
-python run_weekly.py --dry-run
-```
-For live weekly audit:
-```powershell
-python run_weekly.py
-```
-
-### Run All Unit Tests
-```powershell
-python -m unittest discover -s tests
-```
+Gates: no coworking/CRE term → capped at 25 (*Not Relevant*); page not fetched → capped at 49
+(*Unverified*); spam signals → 0 (*Rejected*). Drafts need *High/Medium* and at least
+`outreach.min_score` (65). No third-party authority metrics are estimated.
 
 ---
 
-## 📊 Connecting to Google Sheets (Optional)
+## Configuration
 
-The system works out-of-the-box without credentials by saving all data to `data/sheets_offline_cache/`.
+| File | What it holds |
+|---|---|
+| `config/settings.yaml` | crawler, Sheets, outreach threshold, feeds/GDELT queries, `brand_facts` used in drafts |
+| `config/keywords.yaml` | brand terms (whole-word) and target publications |
+| `config/competitors.yaml` | competitors tracked (name + domain) |
+| `.env` | optional overrides (see `.env.example`) |
+| `data/*_seed.csv` | pages to monitor; every URL was checked to exist on 2026-11-17 |
+| `data/ia-spaces-nap-master.csv` | canonical NAP for 15 hubs (copy of the main project's file) |
+| `data/purged_ids.txt` | IDs to remove permanently |
 
-When you are ready to sync directly to live Google Sheets:
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a free project and enable the **Google Sheets API** and **Google Drive API**.
-3. Create a **Service Account** and download the credentials JSON key.
-4. Rename the JSON key to `google-service-account.json` and save it to:
-   ```
-   offpage-automation/secrets/google-service-account.json
-   ```
-5. Create a new Google Spreadsheet named:
-   `IA Spaces - Off-Page SEO Master`
-6. Share the spreadsheet with the `client_email` listed inside your `google-service-account.json` giving it **Editor** permissions.
-7. Next time you run `python run_daily.py`, it will automatically create and populate the 8 tabs!
+`brand_facts` (hub and city counts in drafts) must match iaspaces.co. Update the `checked` note whenever
+you change them.
 
 ---
 
-## 📁 Folder Structure
-
-```
-offpage-automation/
-├── config/
-│   ├── settings.yaml          # Crawler user-agent, delay, RSS feeds, GDELT queries
-│   ├── competitors.yaml       # Monitored competitors and domains
-│   └── keywords.yaml          # Brand variations and CRE keywords
-├── src/
-│   ├── discovery/             # RSS parser, GDELT client, search query generator
-│   ├── mentions/              # Brand mention detection & live hyperlink inspector
-│   ├── backlinks/             # Source URL auditor, rel attributes & status checker
-│   ├── competitors/           # Competitor coverage gap analyzer
-│   ├── citations/             # Directory listing audit against 15 master hubs
-│   ├── scoring/               # Transparent 0-100 opportunity scoring engine
-│   ├── sheets/                # Google Sheets sync & offline local CSV cache
-│   ├── reporting/             # Outreach generator & Markdown report creator
-│   └── utils/                 # URL normalization, polite rate limiter, HTML parser
-├── data/
-│   ├── citations_seed.csv     # Seed directory listings
-│   ├── backlinks_seed.csv     # Seed backlink sources
-│   └── sheets_offline_cache/  # Persistent CSV copies of all 8 tabs
-├── reports/                   # Daily & weekly Markdown reports
-├── secrets/                   # (Ignored by git) Service account credentials
-├── tests/                     # Automated unit test suite
-├── run_daily.py               # Daily pipeline entrypoint
-├── run_weekly.py              # Weekly pipeline entrypoint
-└── requirements.txt           # Dependencies
-```
+## Ethics and compliance
+- No scraping of Google results; manual search queries are in `src/discovery/manual_queries.py`.
+- Honest bot user agent with contact details; robots.txt followed (4xx robots files mean "allowed" and
+  5xx means "wait", as Google does).
+- No automatic sending or form submission. No invented metrics or statistics in drafts.
 
 ---
 
-## 🛡️ Ethical Guardrails & Compliance
+## Changelog
 
-- **No SERP Scraping:** Does not scrape Google search result pages. Uses Google Alerts RSS feeds, public news XML, and pre-formatted manual verification queries.
-- **No Spam or Auto-Outreach:** Generates outreach drafts marked `Pending Approval`. Never sends emails or submits web forms automatically.
-- **No Fabricated Metrics:** Uses documented, transparent factors instead of unverified DA/DR metrics.
-- **Polite Crawling:** Enforces a 2.0-second delay per domain and checks `robots.txt`.
+### 1.1.0 (2026-11-17), fixes from the project audit
+- Dry runs no longer write to the Sheet or the real cache.
+- The weekly run no longer invents competitor rows when a page fails to load.
+- Citation checks now fetch each listing and compare it with the master NAP.
+- Stable IDs everywhere (no more duplicates from Python's `hash()`).
+- Sheets sync keeps team edits, merges rows from both runners, grows the grid, batches the activity log,
+  and uses narrower scopes.
+- Brand Mentions "Mentioned URL"/"Page Title" and Opportunities "Discovery Date" are now filled.
+- Scoring uses whole-word matches; no more hard-coded contact/editorial points.
+- Drafts only for fetched pages, with contacts taken from the page; the unsourced "40% YoY" claim was removed.
+- One shared fetcher: per-site delay across modules, robots.txt fetched with our user agent and a timeout,
+  retries on 429/503, `.env` honoured.
+- Run Health in reports and the Dashboard, non-zero exit codes, IST timestamps everywhere.
+- Workflows: tests first, shared concurrency queue, rebase-and-retry push, pinned actions, Dependabot.
+- Seed files replaced with pages confirmed to exist; placeholder directory URLs are labelled.
+- HTML text extraction no longer runs words together across tags.

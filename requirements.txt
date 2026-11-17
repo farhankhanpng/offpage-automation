@@ -1,15 +1,20 @@
-# Core Automation & Data Parsing
-pyyaml>=6.0.1
-requests>=2.31.0
+# IA Spaces Off-Page SEO Automation - Python dependencies
+# Bounded ranges so a new major release can't silently break the scheduled runs.
+# Dependabot (.github/dependabot.yml) proposes upgrades weekly.
 
-# Google Sheets API & Authentication
-gspread>=6.0.0
-google-auth>=2.27.0
-google-api-python-client>=2.118.0
+# Config
+pyyaml>=6.0.1,<7
 
-# HTML & Feed Parsing (Graceful Fallbacks exist in src/utils)
-beautifulsoup4>=4.12.3
-feedparser>=6.0.10
+# Google Sheets API & authentication
+gspread>=6.1,<7
+google-auth>=2.27,<3
+
+# HTML & feed parsing (standard-library fallbacks exist in src/utils and src/discovery)
+beautifulsoup4>=4.12.3,<5
+feedparser>=6.0.10,<7
+
+# Windows needs this for the Asia/Kolkata time zone (harmless elsewhere)
+tzdata>=2024.1
 
 # Testing
-pytest>=8.0.0
+pytest>=8,<10

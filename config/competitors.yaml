@@ -1,11 +1,10 @@
 # Competitor Profiles in India's Coworking & Managed Office Space Market
+# Loaded by run_daily.py / run_weekly.py. Add or remove competitors here.
 competitors:
   - name: "Awfis"
     domain: "awfis.com"
     focus: "Hybrid coworking, managed enterprise offices, Tier-2/3 expansion, IPO/public market"
     headquarters: "New Delhi"
-    rss_feeds:
-      - "https://www.google.com/alerts/feeds/awfis-coworking-placeholder"
     search_operators:
       - 'site:inc42.com "Awfis"'
       - 'site:yourstory.com "Awfis"'

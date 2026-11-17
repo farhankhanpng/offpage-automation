@@ -6,9 +6,9 @@ import json
 import urllib.request
 import urllib.parse
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 from ..utils.logger import get_logger
+from ..utils.time_utils import now_ist_str
 from ..utils.url_utils import normalize_url, extract_domain
 
 logger = get_logger("GDELTClient")
@@ -33,8 +33,8 @@ class GDELTClient:
         }
         return f"{self.BASE_URL}?{urllib.parse.urlencode(params)}"
 
-    def search(self, query: str, max_records: int = 30) -> List[Dict[str, Any]]:
-        """Search GDELT public news API."""
+    def search(self, query: str, max_records: int = 30) -> Optional[List[Dict[str, Any]]]:
+        """Search GDELT public news API. Returns None when the request failed."""
         url = self.build_query_url(query, max_records=max_records)
         req = urllib.request.Request(
             url,
@@ -46,7 +46,7 @@ class GDELTClient:
                 data = json.loads(resp.read().decode("utf-8", errors="replace"))
         except Exception as e:
             logger.warning(f"GDELT search failed for '{query}': {e}")
-            return []
+            return None
 
         articles = data.get("articles", [])
         results: List[Dict[str, Any]] = []
@@ -65,7 +65,7 @@ class GDELTClient:
                 "published_date": art.get("seendate", ""),
                 "domain": extract_domain(norm_url) or art.get("domain", ""),
                 "source": "GDELT",
-                "discovered_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "discovery_date": now_ist_str()
             })
 
         return results

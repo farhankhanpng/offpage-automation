@@ -1,0 +1,9 @@
+# Rows listed here are removed from the local cache AND the Google Sheet on the next run,
+# and are never re-added. One ID per line; text after '#' is a comment.
+#
+# Note: rows written before v1.1.0 (no "Last Seen" value) are dropped automatically on the
+# first v1.1.0 run unless someone filled in Team Notes / changed Approval Status. That clears
+# the dry-run fixtures, placeholder competitor rows and duplicates found in the 2026-11-17 audit.
+# The IDs below are listed as well so they can never come back.
+BL-7A8B9C0D        # dry-run fixture "Verified parent ecosystem link" (never checked)
+BL-4E5F6A1B        # dry-run fixture

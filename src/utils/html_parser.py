@@ -121,12 +121,13 @@ def parse_html_content(html: str, base_url: str = "") -> Dict[str, Any]:
             links.append({
                 "raw_href": raw_href,
                 "href": resolved,
-                "anchor_text": " ".join(a.get_text().split()),
+                "anchor_text": " ".join(a.get_text(" ").split()),
                 "rel": rel,
                 "target": a.get("target", "")
             })
 
-        body_text = " ".join(soup.get_text().split())
+        # Separator " " stops words in adjacent tags running together ("StoryIA Spaces")
+        body_text = " ".join((soup.body or soup).get_text(" ").split())
         return {
             "title": title,
             "meta_description": meta_desc,

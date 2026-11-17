@@ -1,15 +1,20 @@
-# Secrets and Credentials
-secrets/
-*.json
+# Secrets and credentials
+# ("secrets/*" rather than "secrets/" so the .gitkeep exception below can work)
+secrets/*
 !secrets/.gitkeep
+*.json
 .env
 .env.local
 
-# Logs and Run Artifacts
-logs/*.log
+# Logs and run artifacts
+logs/
 *.log
 
-# Python Cache
+# Dry runs never belong in git
+data/dry_run_cache/
+reports/dry-run/
+
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class

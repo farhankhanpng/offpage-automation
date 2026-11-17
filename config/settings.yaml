@@ -1,34 +1,45 @@
 # IA Spaces Off-Page SEO Automation Settings
+# Values here can be overridden from .env or the environment (see .env.example).
 app:
   name: "IA Spaces Off-Page SEO Engine"
-  version: "1.0.0"
+  version: "1.1.0"
   target_brand: "IA Spaces"
   target_website: "https://iaspaces.co"
   parent_brand: "India Accelerator"
   parent_website: "https://www.indiaaccelerator.co"
   market: "India"
 
+# Company facts used in outreach drafts. Update these (and the "checked" note)
+# whenever the website changes. Never add a figure without a public source.
+brand_facts:
+  hubs: "40+"
+  cities: "25+"
+  parent: "India Accelerator"
+  website: "https://iaspaces.co"
+  checked: "2026-11-17 on the iaspaces.co homepage ('40+ Hubs', '25+ Cities')"
+
 crawler:
-  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  # An honest bot user agent with a contact. Robots.txt rules are checked for this agent.
+  user_agent: "IASpacesSEOBot/1.1 (+https://iaspaces.co; info@iaspaces.co)"
   timeout_seconds: 15
-  request_delay_seconds: 2.0
-  max_retries: 3
+  request_delay_seconds: 3.0
+  max_retries: 2
   respect_robots_txt: true
-  max_redirects: 5
 
 sheets:
   service_account_path: "secrets/google-service-account.json"
   sheet_name: "IA Spaces - Off-Page SEO Master"
-  local_fallback_path: "data/local_sheets_db.json"
-  tabs:
-    - "Dashboard"
-    - "Opportunities"
-    - "Backlinks"
-    - "Brand_Mentions"
-    - "Competitors"
-    - "Outreach"
-    - "Citations"
-    - "Activity_Log"
+  # Optional but recommended: the long ID from the Sheet's URL
+  # (docs.google.com/spreadsheets/d/<THIS PART>/edit). With it, the Drive scope is not needed.
+  sheet_id: ""
+  # GitHub Actions sets REQUIRE_SHEETS=true so a broken Sheets connection fails the run.
+  require_connection: false
+  retention_days: 90
+  tombstones_file: "data/purged_ids.txt"
+
+outreach:
+  # Minimum score for a draft. Drafts are only created for pages that were fetched.
+  min_score: 65
 
 discovery:
   public_rss_feeds:
@@ -40,9 +51,17 @@ discovery:
     - "coworking India"
     - "managed office India"
     - "flexible workspace India"
-    - "India Accelerator"
+    - "\"India Accelerator\""
+
+backlinks:
+  # Pages that should link to iaspaces.co but may still point at these legacy URLs.
+  legacy_targets:
+    - "indiaaccelerator.co/ia-spaces"
+    - "indiaaccelerator.co/coworking"
+    - "indiaaccelerator.co/spaces"
 
 paths:
+  master_nap_csv: "data/ia-spaces-nap-master.csv"
   data_dir: "data"
   logs_dir: "logs"
   reports_dir: "reports"

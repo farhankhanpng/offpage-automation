@@ -1,106 +1,134 @@
 """Citation & Local Directory Tracker for IA Spaces hubs.
-Compares directory listings against verified hub NAP master data without auto-submitting.
-Enforces strict 1-to-1 hub address/phone pairing — never cross-pollinates hub details.
+
+For each directory listing in data/citations_seed.csv the tracker FETCHES the live
+listing page and checks it against the canonical master NAP (data/ia-spaces-nap-master.csv):
+  - phone: the master phone's last 10 digits appear on the page;
+  - PIN code: the hub's postal code appears on the page;
+  - website: the page links to (or mentions) iaspaces.co.
+
+Statuses:
+  "Matches Master NAP"        - every available check passed on the live page;
+  "Correction Needed"         - the page loaded but at least one check failed;
+  "Could Not Verify"          - the page could not be fetched (blocked / error) -> check by hand;
+  "Placeholder URL"           - the seed URL is a placeholder; replace it with the real listing;
+  "Unknown Hub"               - hub_name does not match a Business Name in the master NAP.
+It never submits or edits listings.
 """
 
 import csv
 import os
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+import re
+from typing import Any, Dict, Optional
 
+from ..utils.fetcher import PoliteFetcher
+from ..utils.html_parser import parse_html_content
 from ..utils.logger import get_logger
-from ..utils.url_utils import normalize_url, generate_stable_id
+from ..utils.time_utils import now_ist_str
+from ..utils.url_utils import extract_domain, generate_stable_id, normalize_url
 
 logger = get_logger("CitationTracker")
 
+PLACEHOLDER_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (r"PXX", r"placeholder", r"example\.com", r"TODO")]
+
+
+def _digits(value: str) -> str:
+    return "".join(ch for ch in (value or "") if ch.isdigit())
+
 
 class CitationTracker:
-    """Manages and audits directory listings across IA Spaces regional hubs."""
-
-    def __init__(self, master_nap_csv: Optional[str] = None):
+    def __init__(self, master_nap_csv: Optional[str] = None, fetcher: Optional[PoliteFetcher] = None):
         self.master_hubs: Dict[str, Dict[str, str]] = {}
+        self.fetcher = fetcher
         if master_nap_csv and os.path.exists(master_nap_csv):
             self.load_master_nap(master_nap_csv)
 
     def load_master_nap(self, csv_path: str):
-        """Load official NAP records for all 15 IA Spaces hubs from verified CSV."""
         try:
-            with open(csv_path, mode="r", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    hub_name = (row.get("Business Name") or row.get("hub_name", "")).strip()
-                    addr = " ".join(filter(None, [row.get("Address Line 1", ""), row.get("Address Line 2", ""), row.get("address", "")])).strip()
-                    phone = (row.get("Primary Phone") or row.get("phone", "")).strip()
-                    website = (row.get("Website") or row.get("website_url", "")).strip()
-                    pin = (row.get("Postal Code") or row.get("pin_code", "")).strip()
-
-                    if hub_name:
-                        self.master_hubs[hub_name.lower()] = {
-                            "hub_name": hub_name,
-                            "city": row.get("City") or row.get("city", "").strip(),
-                            "address": addr,
-                            "phone": phone,
-                            "website_url": website,
-                            "pin_code": pin
-                        }
-            logger.info(f"Loaded {len(self.master_hubs)} verified hub records from master NAP.")
+            with open(csv_path, encoding="utf-8-sig", newline="") as f:
+                for row in csv.DictReader(f):
+                    hub = (row.get("Business Name") or "").strip()
+                    if not hub:
+                        continue
+                    self.master_hubs[hub.lower()] = {
+                        "hub_name": hub,
+                        "city": (row.get("City") or "").strip(),
+                        "address": " ".join(filter(None, [row.get("Address Line 1", ""), row.get("Address Line 2", "")])).strip(),
+                        "phone": (row.get("Primary Phone") or "").strip(),
+                        "website_url": (row.get("Website") or "").strip(),
+                        "pin_code": (row.get("Postal Code") or "").strip(),
+                    }
+            logger.info(f"Loaded {len(self.master_hubs)} hub records from master NAP.")
         except Exception as e:
             logger.warning(f"Could not load master NAP from {csv_path}: {e}")
 
-    def audit_listing(
-        self,
-        directory_name: str,
-        listing_url: str,
-        hub_name: str,
-        found_address: str,
-        found_phone: str,
-        found_website: str
-    ) -> Dict[str, Any]:
-        """Audit a single directory listing against the canonical master NAP."""
-        clean_hub_key = hub_name.lower().strip()
-        master = self.master_hubs.get(clean_hub_key)
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    @staticmethod
+    def is_placeholder(url: str) -> bool:
+        return not url or any(p.search(url) for p in PLACEHOLDER_PATTERNS)
 
+    def audit_listing(self, directory_name: str, listing_url: str, hub_name: str, **_ignored) -> Dict[str, Any]:
+        master = self.master_hubs.get((hub_name or "").lower().strip())
         record: Dict[str, Any] = {
             "id": generate_stable_id(f"{directory_name}::{hub_name}", prefix="CIT"),
             "directory_name": directory_name,
-            "listing_url": normalize_url(listing_url),
+            "listing_url": normalize_url(listing_url) if listing_url else "",
             "hub_name": hub_name,
-            "address": found_address,
-            "phone": found_phone,
-            "website_url": found_website,
-            "nap_status": "Not Verified",
-            "last_checked": now_str,
-            "correction_required": "None",
-            "notes": ""
+            "address": master["address"] if master else "",
+            "phone": master["phone"] if master else "",
+            "website_url": master["website_url"] if master else "",
+            "nap_status": "Not Checked",
+            "last_checked": now_ist_str(),
+            "correction_required": "",
+            "notes": "Address/Phone/Website columns show the canonical master NAP values.",
         }
 
         if not master:
-            record["notes"] = f"Hub '{hub_name}' not found in canonical master NAP database."
-            record["nap_status"] = "Unknown Hub"
+            record.update(nap_status="Unknown Hub",
+                          notes=f"Hub '{hub_name}' is not a Business Name in the master NAP file.")
             return record
 
-        corrections = []
+        if self.is_placeholder(listing_url):
+            record.update(nap_status="Placeholder URL",
+                          correction_required="Replace with the real listing URL in data/citations_seed.csv")
+            return record
 
-        # Check Phone
-        clean_found_phone = "".join(filter(str.isdigit, found_phone))
-        clean_master_phone = "".join(filter(str.isdigit, master["phone"]))
-        if clean_master_phone and clean_found_phone != clean_master_phone:
-            corrections.append(f"Phone mismatch: found '{found_phone}', expected '{master['phone']}'")
+        if self.fetcher is None:
+            record.update(nap_status="Could Not Verify", notes="No fetcher configured.")
+            return record
 
-        # Check Website
-        if normalize_url(found_website) != normalize_url(master["website_url"]):
-            corrections.append(f"Website URL mismatch: found '{found_website}', expected '{master['website_url']}'")
+        res = self.fetcher.fetch(listing_url, source="citation check")
+        if not res.get("ok"):
+            record.update(
+                nap_status="Could Not Verify",
+                correction_required="Check this listing by hand",
+                notes=f"Listing could not be fetched ({res.get('status')}). Directories often block bots.",
+            )
+            return record
 
-        # Check PIN code / address
-        if master.get("pin_code") and master["pin_code"] not in found_address:
-            corrections.append(f"Address missing verified PIN code ({master['pin_code']})")
+        parsed = parse_html_content(res["html"], base_url=listing_url)
+        page_text = f"{parsed.get('title', '')} {parsed.get('body_text', '')}"
+        page_digits = _digits(page_text + " " + res["html"])
+        problems, passed = [], []
 
-        if not corrections:
-            record["nap_status"] = "Verified Correct"
-            record["correction_required"] = "None"
+        phone10 = _digits(master["phone"])[-10:]
+        if phone10:
+            (passed if phone10 in page_digits else problems).append(
+                "phone" if phone10 in page_digits else f"Phone {master['phone']} not shown on listing"
+            )
+        if master["pin_code"]:
+            (passed if master["pin_code"] in page_text else problems).append(
+                "PIN" if master["pin_code"] in page_text else f"PIN code {master['pin_code']} not shown on listing"
+            )
+        links_site = any(extract_domain(lk.get("href", "")) in ("iaspaces.co", "www.iaspaces.co")
+                         for lk in parsed.get("links", []))
+        if links_site or "iaspaces.co" in page_text.lower():
+            passed.append("website")
         else:
-            record["nap_status"] = "Correction Needed"
-            record["correction_required"] = "; ".join(corrections)
+            problems.append("No link to iaspaces.co on listing")
 
+        if problems:
+            record.update(nap_status="Correction Needed", correction_required="; ".join(problems),
+                          notes=f"Passed: {', '.join(passed) or 'none'}")
+        else:
+            record.update(nap_status="Matches Master NAP", correction_required="None",
+                          notes="Phone, PIN code and website found on the live listing.")
         return record

@@ -1,16 +1,45 @@
-"""Outreach Draft Generator for high-quality verified prospects.
-Strictly produces draft templates with default status 'Pending Approval'.
-NEVER dispatches or sends emails automatically.
+"""Outreach Draft Generator.
+
+Produces draft emails with status "Pending Approval". It NEVER sends anything.
+
+Rules:
+  - drafts are only created for pages that were fetched and inspected (enforced by the runner);
+  - company facts (hub/city counts) come from settings.yaml -> brand_facts, which records
+    where each figure was checked; no unsourced statistics are inserted;
+  - contact emails are only filled in when the address is published on the page itself;
+    otherwise the draft says "Unverified (requires manual lookup)".
 """
 
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from ..utils.url_utils import generate_stable_id, extract_domain
+from ..utils.time_utils import now_ist_str
+from ..utils.url_utils import extract_domain, generate_stable_id
+
+UNVERIFIED_EMAIL = "Unverified (requires manual lookup)"
+
+DEFAULT_FACTS = {
+    "hubs": "40+",
+    "cities": "25+",
+    "parent": "India Accelerator",
+    "website": "https://iaspaces.co",
+}
 
 
 class OutreachDraftGenerator:
-    """Generates thoughtful, individually tailored editorial outreach drafts."""
+    def __init__(self, brand_facts: Optional[Dict[str, str]] = None):
+        facts = dict(DEFAULT_FACTS)
+        facts.update({k: str(v) for k, v in (brand_facts or {}).items() if v not in (None, "")})
+        self.facts = facts
+
+    @staticmethod
+    def angle_for(editorial_angle: str = "", unlinked_brand: bool = False) -> str:
+        if unlinked_brand:
+            return "Unlinked Brand Mention"
+        if editorial_angle.startswith("Listicle"):
+            return "Listicle Inclusion"
+        if editorial_angle.startswith("Tier-2"):
+            return "Tier-2 Expansion / Commentary"
+        return "Industry Commentary"
 
     def generate_draft(
         self,
@@ -20,69 +49,72 @@ class OutreachDraftGenerator:
         contact_name: Optional[str] = None,
         contact_email: Optional[str] = None,
         contact_source: Optional[str] = None,
-        evidence: str = ""
+        page_title: str = "",
+        brand: str = "IA Spaces",
+        evidence: str = "",
     ) -> Dict[str, Any]:
-        """Generate a personalized draft strictly marked 'Pending Approval'."""
-        clean_name = contact_name if contact_name else "Editorial Team"
+        f = self.facts
+        name = contact_name or "Editorial Team"
         domain = extract_domain(target_url) or publication
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        piece = f'"{page_title}"' if page_title else "your article"
+        signoff = f"Team IA Spaces ({f['parent']})\n{f['website']}"
 
         if angle == "Unlinked Brand Mention":
-            subject = f"Quick question regarding your mention of IA Spaces on {domain}"
+            subject = f"Thank you for mentioning {brand} - a quick link request"
             body = (
-                f"Hi {clean_name},\n\n"
-                f"I came across your insightful coverage on {domain} here:\n{target_url}\n\n"
-                f"Thank you for referencing IA Spaces in your piece. I noticed our name is mentioned without an active link to our primary resource hub.\n\n"
-                f"Would you be open to adding a reference hyperlink to https://iaspaces.co so your readers can easily explore our flexible workspaces and ecosystem details?\n\n"
-                f"Either way, thank you for the thoughtful coverage!\n\n"
-                f"Warm regards,\n"
-                f"IA Spaces Communications Team\n"
-                f"https://iaspaces.co"
+                f"Hi {name},\n\n"
+                f"Thank you for mentioning {brand} in {piece} on {domain}:\n{target_url}\n\n"
+                f"Would you consider linking the mention to our official site, {f['website']}, "
+                f"so readers can find the hub details directly?\n\n"
+                f"Thanks for the coverage either way.\n\n{signoff}"
             )
         elif angle == "Listicle Inclusion":
-            subject = f"Resource contribution for your {domain} coworking roundup"
+            subject = f"A suggestion for {piece} on {domain}"
             body = (
-                f"Hi {clean_name},\n\n"
-                f"I enjoyed reading your recent curated guide on flexible workspace solutions in India on {domain}:\n{target_url}\n\n"
-                f"Given your focus on high-growth regional hubs, I wanted to suggest including IA Spaces (the coworking arm of India Accelerator). We operate 15+ managed hubs across Delhi NCR, Gurugram, Pune, Noida, Ahmedabad, and Tier-2 markets like Indore.\n\n"
-                f"Here is our portal for quick review: https://iaspaces.co\n\n"
-                f"Would this be a valuable addition to your readers in your next guide refresh?\n\n"
-                f"Best regards,\n"
-                f"IA Spaces Partnerships\n"
-                f"https://iaspaces.co"
+                f"Hi {name},\n\n"
+                f"I came across {piece} on {domain}:\n{target_url}\n\n"
+                f"If you update it, IA Spaces (the coworking network of {f['parent']}) may be a useful addition: "
+                f"we operate {f['hubs']} hubs across {f['cities']} Indian cities, including Tier-2 locations.\n\n"
+                f"Hub details and pricing: {f['website']}\n\n"
+                f"Happy to send any information you need.\n\n{signoff}"
             )
         elif angle == "Tier-2 Expansion / Commentary":
-            subject = f"Editorial insight / Commentary on Tier-2 workspace decentralization"
+            subject = f"Commentary on Tier-2 workspace growth for {domain}"
             body = (
-                f"Hi {clean_name},\n\n"
-                f"Following your coverage of commercial real estate trends on {domain} ({target_url}), I wanted to share a unique angle.\n\n"
-                f"IA Spaces, backed by India Accelerator, has seen over 40% YoY uptake in managed enterprise seats across Tier-2 hubs like Indore and Ahmedabad as tech enterprises decentralize from metro centers.\n\n"
-                f"If you are working on upcoming stories around workspace trends or Tier-2 startup ecosystems, our leadership team (including Ashish Bhatia, Co-Founder) would be delighted to share granular market data or commentary.\n\n"
-                f"More background: https://iaspaces.co\n\n"
-                f"Warm regards,\n"
-                f"IA Spaces Editorial Team"
+                f"Hi {name},\n\n"
+                f"I read {piece} on {domain} ({target_url}).\n\n"
+                f"IA Spaces, backed by {f['parent']}, runs {f['hubs']} coworking hubs across {f['cities']} cities, "
+                f"many of them outside the metros. If you are working on stories about Tier-2 startup "
+                f"ecosystems or flexible workspaces, our leadership team would be glad to offer commentary.\n\n"
+                f"More background: {f['website']}\n\n{signoff}"
             )
         else:
-            subject = f"Editorial inquiry regarding {domain} and IA Spaces"
+            subject = f"Workspace commentary for {domain}"
             body = (
-                f"Hi {clean_name},\n\n"
-                f"Hope this finds you well. Reaching out from IA Spaces regarding your article on {domain}:\n{target_url}\n\n"
-                f"We would love to share supporting context and data on flexible workspaces in India (https://iaspaces.co) if relevant for your upcoming features.\n\n"
-                f"Best regards,\n"
-                f"IA Spaces Team"
+                f"Hi {name},\n\n"
+                f"I came across {piece} on {domain}:\n{target_url}\n\n"
+                f"If useful for future coverage of flexible workspaces in India, IA Spaces "
+                f"({f['hubs']} hubs, {f['cities']} cities) can share context and commentary.\n\n{signoff}"
             )
 
-        draft_id = generate_stable_id(f"{target_url}::{subject}", prefix="OUT")
-
         return {
-            "id": draft_id,
+            "id": generate_stable_id(f"{target_url}::{angle}", prefix="OUT"),
             "publication": publication or domain,
-            "contact_name": contact_name or "Unverified / Editorial Desk",
-            "contact_email": contact_email or "Unverified (Requires Manual Lookup)",
-            "contact_source": contact_source or "Public Website / Byline",
+            "contact_name": contact_name or "Editorial Team (not verified)",
+            "contact_email": contact_email or UNVERIFIED_EMAIL,
+            "contact_source": contact_source or "Not found on page",
             "target_url": target_url,
             "proposed_subject": subject,
             "draft_email": body,
             "approval_status": "Pending Approval",
-            "created_date": now_str
+            "created_date": now_ist_str(),
         }
+
+
+def pick_contact(emails: List[str]) -> Optional[str]:
+    """Prefer editorial-looking addresses published on the page."""
+    preferred = ("editor", "editorial", "news", "tips", "contribut", "content", "press", "features")
+    for e in emails:
+        if any(p in e.split("@")[0] for p in preferred):
+            return e
+    return emails[0] if emails else None
