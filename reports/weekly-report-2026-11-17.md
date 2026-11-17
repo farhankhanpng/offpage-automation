@@ -1,30 +1,56 @@
 # IA Spaces - Weekly Off-Page & Citation Report (2026-11-17)
-*Generated at: 2026-11-17 06:30:20 IST*
+*Generated at: 2026-11-17 15:34:16 IST*
 
-## Weekly Executive Summary
-- **Total Hub Citations Monitored:** 7
-- **Verified Correct Listings:** 7
-- **Listings Requiring NAP Correction:** 0
-- **Competitor Editorial Angle Prospects:** 4
-- **Active Monitored Backlinks:** 4
+## Run Health
+- **Status:** Degraded
+- **Checks:** citation check: 1/4 ok; competitor page: 4/4 ok; backlink check: 0/2 ok
+- **Google Sheets:** Connected
+
+<details><summary>Failed checks (5)</summary>
+
+| Check | URL / query | Reason |
+|---|---|---|
+| citation check | https://myhq.in/coworking-space/gurgaon/india-accelerator-mgf-metropolis-mg-road | HTTP Error 404 |
+| citation check | https://flexofc.com/coworking-space/gurgaon/india-accelerator-bptp-centra-one-sector-61 | HTTP Error 404 |
+| citation check | https://magicpin.in/Gurgaon/Mg-Road/Coworking-Space/India-Accelerator-\|-Ia-Spaces/ | HTTP Error 404 |
+| backlink check | https://www.indiaaccelerator.co/ | HTTP Error 429 |
+| backlink check | https://www.indiaaccelerator.co/ia-spaces | HTTP Error 429 |
+
+</details>
 
 ---
 
-## 1. Hub Citation Audit (NAP Consistency)
-| Hub Name | Directory | NAP Status | Correction Required |
-|---|---|---|---|
-| **IA Spaces - MGF Metropolis Mall** | [Justdial](https://www.justdial.com/Delhi/IA-Spaces-MGF-Metropolis-Mall-Sector-28/011PXX11) | **Verified Correct** | None |
-| **IA Spaces - Imperia MindSpace** | [IndiaMART](https://www.indiamart.com/ia-spaces-imperia-mindspace) | **Verified Correct** | None |
-| **IA Spaces - The Iconic Corenthum** | [Sulekha](https://www.sulekha.com/ia-spaces-corenthum-noida) | **Verified Correct** | None |
-| **IA Spaces - Lotus Corporate Park** | [Coworker](https://www.coworker.com/india/mumbai/ia-spaces-lotus-corporate-park) | **Verified Correct** | None |
-| **IA Spaces - Montclaire Baner** | [Justdial](https://www.justdial.com/Pune/IA-Spaces-Montclaire-Baner/020PXX) | **Verified Correct** | None |
-| **IA Spaces - Pinnacle Business Park** | [Sulekha](https://www.sulekha.com/ia-spaces-pinnacle-ahmedabad) | **Verified Correct** | None |
-| **IA Spaces - Apex Mall** | [IndiaMART](https://www.indiamart.com/ia-spaces-apex-mall-jaipur) | **Verified Correct** | None |
+## Summary
+- **Directory listings checked:** 9
+  - Correction Needed: 1
+  - Could Not Verify: 3
+  - Placeholder URL: 5
+- **Competitor coverage rows (from fetched pages only):** 4
+- **Backlink sources checked:** 2
 
-## 2. Competitor Coverage Gaps
-| Publication | Competitor | Editorial Angle | Competitor Linked? |
+## 1. Directory Listings vs Master NAP
+| Hub | Directory | Status | Action |
 |---|---|---|---|
-| [Inc42](https://inc42.com/features/top-coworking-spaces-in-delhi-ncr-2026/) | Awfis / Smartworks | **Listicle Inclusion / Resource Update** | Yes |
-| [The Economic Times](https://economictimes.indiatimes.com/industry/services/property-/-cstruction/flexible-office-space-stock-in-india-to-cross-100-million-sq-ft-by-2026/articleshow/108920150.cms) | Awfis / Smartworks | **Listicle Inclusion / Resource Update** | Yes |
-| [Entrackr](https://entrackr.com/2026/01/gurugram-commercial-leasing-surge-managed-offices) | Awfis / Smartworks | **Listicle Inclusion / Resource Update** | Yes |
-| [Inc42](https://inc42.com/features/coworking-spaces-india) | Awfis / Smartworks | **Listicle Inclusion / Resource Update** | Yes |
+| **IA Spaces - MGF Metropolis Mall** | [myHQ](https://myhq.in/coworking-space/gurgaon/india-accelerator-mgf-metropolis-mg-road) | **Could Not Verify** | Check this listing by hand |
+| **IA Spaces - BPTP Centra One** | [Flexo](https://flexofc.com/coworking-space/gurgaon/india-accelerator-bptp-centra-one-sector-61) | **Could Not Verify** | Check this listing by hand |
+| **IA Spaces - MGF Metropolis Mall** | [Magicpin](https://magicpin.in/Gurgaon/Mg-Road/Coworking-Space/India-Accelerator-|-Ia-Spaces) | **Could Not Verify** | Check this listing by hand |
+| **IA Spaces - Industrial Area Phase 1** | [myHQ](https://myhq.in/dedicated/coworking-space/mysoho-industrialareaphasei-2) | **Correction Needed** | Phone +918031322007 not shown on listing; No link to iaspaces.co on listing |
+| **IA Spaces - MGF Metropolis Mall** | [Justdial](https://www.justdial.com/Delhi/IA-Spaces-MGF-Metropolis-Mall-Sector-28/011PXX11) | **Placeholder URL** | Replace with the real listing URL in data/citations_seed.csv |
+| **IA Spaces - Imperia MindSpace** | [IndiaMART](https://www.indiamart.com/ia-spaces-imperia-mindspace/PLACEHOLDER) | **Placeholder URL** | Replace with the real listing URL in data/citations_seed.csv |
+| **IA Spaces - The Iconic Corenthum** | [Sulekha](https://www.sulekha.com/ia-spaces-corenthum-noida/PLACEHOLDER) | **Placeholder URL** | Replace with the real listing URL in data/citations_seed.csv |
+| **IA Spaces - Lotus Corporate Park** | [Coworker](https://www.coworker.com/india/mumbai/ia-spaces-lotus-corporate-park/PLACEHOLDER) | **Placeholder URL** | Replace with the real listing URL in data/citations_seed.csv |
+| **IA Spaces - Montclaire Baner** | [Justdial](https://www.justdial.com/Pune/IA-Spaces-Montclaire-Baner/020PXX) | **Placeholder URL** | Replace with the real listing URL in data/citations_seed.csv |
+
+## 2. Competitor Coverage
+| Publication | Competitor | Angle | Competitor linked? |
+|---|---|---|---|
+| [hubandoak.com](https://hubandoak.com/?p=27287) | Awfis | Listicle Inclusion / Resource Update | No |
+| [hubandoak.com](https://hubandoak.com/?p=27287) | Innov8 | Listicle Inclusion / Resource Update | No |
+| [thehosteller.com](https://www.thehosteller.com/blogs/gurgaon-co-working-spaces) | Awfis | Listicle Inclusion / Resource Update | No |
+| [thehosteller.com](https://www.thehosteller.com/blogs/gurgaon-co-working-spaces) | Innov8 | Listicle Inclusion / Resource Update | No |
+
+## 3. Backlink Verification
+| Source URL | Status | Notes |
+|---|---|---|
+| https://www.indiaaccelerator.co/ | **Could Not Verify** | Could not fetch page: HTTP 429 HTTP Error 429 |
+| https://www.indiaaccelerator.co/ia-spaces | **Could Not Verify** | Could not fetch page: HTTP 429 HTTP Error 429 |
