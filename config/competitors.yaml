@@ -1,0 +1,45 @@
+# Competitor Profiles in India's Coworking & Managed Office Space Market
+competitors:
+  - name: "Awfis"
+    domain: "awfis.com"
+    focus: "Hybrid coworking, managed enterprise offices, Tier-2/3 expansion, IPO/public market"
+    headquarters: "New Delhi"
+    rss_feeds:
+      - "https://www.google.com/alerts/feeds/awfis-coworking-placeholder"
+    search_operators:
+      - 'site:inc42.com "Awfis"'
+      - 'site:yourstory.com "Awfis"'
+      - 'site:economictimes.indiatimes.com "Awfis"'
+
+  - name: "Smartworks"
+    domain: "smartworksoffice.com"
+    focus: "Enterprise campus managed workspaces, Fortune 500 & GCC custom office campuses"
+    headquarters: "Noida / Gurugram"
+    search_operators:
+      - 'site:inc42.com "Smartworks"'
+      - 'site:economictimes.indiatimes.com "Smartworks"'
+      - 'site:livemint.com "Smartworks"'
+
+  - name: "Innov8"
+    domain: "innov8.work"
+    focus: "Design-centric premium coworking, startup communities, prime metro CBDs"
+    headquarters: "New Delhi"
+    search_operators:
+      - 'site:inc42.com "Innov8"'
+      - 'site:yourstory.com "Innov8"'
+
+  - name: "IndiQube"
+    domain: "indiqube.com"
+    focus: "Tech-enabled commercial campuses, GCC office infrastructure, South/West tech corridors"
+    headquarters: "Bengaluru"
+    search_operators:
+      - 'site:inc42.com "IndiQube"'
+      - 'site:yourstory.com "IndiQube"'
+
+  - name: "WeWork India"
+    domain: "wework.co.in"
+    focus: "Global brand flex spaces, Grade-A IT parks, premium enterprise leasing"
+    headquarters: "Bengaluru / Mumbai"
+    search_operators:
+      - 'site:economictimes.indiatimes.com "WeWork India"'
+      - 'site:livemint.com "WeWork India"'

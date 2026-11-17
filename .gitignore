@@ -1,0 +1,25 @@
+# Secrets and Credentials
+secrets/
+*.json
+!secrets/.gitkeep
+.env
+.env.local
+
+# Logs and Run Artifacts
+logs/*.log
+*.log
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+
+# Temporary data
+data/cache/
+data/*.tmp

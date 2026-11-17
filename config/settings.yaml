@@ -1,0 +1,49 @@
+# IA Spaces Off-Page SEO Automation Settings
+app:
+  name: "IA Spaces Off-Page SEO Engine"
+  version: "1.0.0"
+  target_brand: "IA Spaces"
+  target_website: "https://iaspaces.co"
+  parent_brand: "India Accelerator"
+  parent_website: "https://www.indiaaccelerator.co"
+  market: "India"
+
+crawler:
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  timeout_seconds: 15
+  request_delay_seconds: 2.0
+  max_retries: 3
+  respect_robots_txt: true
+  max_redirects: 5
+
+sheets:
+  service_account_path: "secrets/google-service-account.json"
+  sheet_name: "IA Spaces - Off-Page SEO Master"
+  local_fallback_path: "data/local_sheets_db.json"
+  tabs:
+    - "Dashboard"
+    - "Opportunities"
+    - "Backlinks"
+    - "Brand_Mentions"
+    - "Competitors"
+    - "Outreach"
+    - "Citations"
+    - "Activity_Log"
+
+discovery:
+  public_rss_feeds:
+    - "https://inc42.com/feed/"
+    - "https://yourstory.com/feed"
+    - "https://entrackr.com/feed/"
+    - "https://www.livemint.com/rss/companies"
+  gdelt_queries:
+    - "coworking India"
+    - "managed office India"
+    - "flexible workspace India"
+    - "India Accelerator"
+
+paths:
+  data_dir: "data"
+  logs_dir: "logs"
+  reports_dir: "reports"
+  secrets_dir: "secrets"

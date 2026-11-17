@@ -1,0 +1,15 @@
+# Core Automation & Data Parsing
+pyyaml>=6.0.1
+requests>=2.31.0
+
+# Google Sheets API & Authentication
+gspread>=6.0.0
+google-auth>=2.27.0
+google-api-python-client>=2.118.0
+
+# HTML & Feed Parsing (Graceful Fallbacks exist in src/utils)
+beautifulsoup4>=4.12.3
+feedparser>=6.0.10
+
+# Testing
+pytest>=8.0.0
