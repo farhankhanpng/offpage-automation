@@ -7,7 +7,7 @@ pyyaml>=6.0.1,<7
 
 # Google Sheets API & authentication
 gspread>=6.1,<7
-google-auth>=2.27,<3
+google-auth>=2.62.2,<3
 
 # HTML & feed parsing (standard-library fallbacks exist in src/utils and src/discovery)
 beautifulsoup4>=4.12.3,<5
