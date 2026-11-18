@@ -11,7 +11,7 @@ google-auth>=2.27,<3
 
 # HTML & feed parsing (standard-library fallbacks exist in src/utils and src/discovery)
 beautifulsoup4>=4.12.3,<5
-feedparser>=6.0.10,<7
+feedparser>=6.0.14,<7
 
 # Windows needs this for the Asia/Kolkata time zone (harmless elsewhere)
 tzdata>=2024.1
