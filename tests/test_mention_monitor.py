@@ -65,6 +65,14 @@ class TestMentionMonitor(unittest.TestCase):
             key = header.lower().replace(" ", "_")
             self.assertIn(key, rec, f"missing value for column {header}")
 
+    def test_context_comes_from_article_text_not_navigation(self):
+        html = ("<html><body><nav><a href='/'>Home</a> IA Spaces partners menu</nav>"
+                "<article><p>Last week IA Spaces opened a new coworking centre in Surat with 280 desks.</p></article>"
+                "</body></html>")
+        rec = self.monitor.inspect_content("https://news.example.com/s", html)[0]
+        self.assertIn("opened a new coworking centre", rec["context"])
+        self.assertNotIn("partners menu", rec["context"])
+
     def test_failed_fetch_produces_no_rows(self):
         self.assertEqual(self.monitor.analyze_url("https://blocked.example.com/"), [])
 

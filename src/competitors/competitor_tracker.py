@@ -80,7 +80,8 @@ class CompetitorTracker:
                 "page_title": title,
                 "competitor_linked": "Yes" if comp_links else "No",
                 "competitor_link_url": comp_links[0]["href"] if comp_links else "",
-                "evidence": (find_mention_context(body_text, name, window=140) if mentioned else "")
+                "evidence": ((find_mention_context(parsed.get("main_text", ""), name, window=140)
+                              or find_mention_context(body_text, name, window=140)) if mentioned else "")
                             or f"Outbound link to {comp_domain}",
                 "editorial_angle": angle,
                 "discovery_date": now_str,

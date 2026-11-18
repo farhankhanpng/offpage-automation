@@ -89,7 +89,8 @@ class MentionMonitor:
                 "page_title": title or "Untitled Page",
                 "domain": domain,
                 "discovery_date": now_str,
-                "context": find_mention_context(body_text, brand, window=120),
+                "context": find_mention_context(parsed.get("main_text", ""), brand, window=120)
+                           or find_mention_context(body_text, brand, window=120),
                 "has_hyperlink": has_link,
                 "link_destination": chosen.get("href", "") if chosen else "",
                 "anchor_text": chosen.get("anchor_text", "") if chosen else "",

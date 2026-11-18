@@ -120,8 +120,8 @@ Gates: no coworking/CRE term → capped at 25 (*Not Relevant*); page not fetched
 | `config/keywords.yaml` | brand terms (whole-word) and target publications |
 | `config/competitors.yaml` | competitors tracked (name + domain) |
 | `.env` | optional overrides (see `.env.example`) |
-| `data/*_seed.csv` | pages to monitor; every URL was checked to exist on 2026-11-17 |
-| `data/ia-spaces-nap-master.csv` | canonical NAP for 15 hubs (copy of the main project's file) |
+| `data/*_seed.csv` | pages to monitor; URLs checked on 2026-11-17/18. Citation rows with no URL mean no listing was found: create one |
+| `data/ia-spaces-nap-master.csv` | NAP for the 32 hubs on iaspaces.co (rebuilt 2026-11-18; column "Team Confirmed" shows whether operations has checked each row) |
 | `data/purged_ids.txt` | IDs to remove permanently |
 
 `brand_facts` (hub and city counts in drafts) must match iaspaces.co. Update the `checked` note whenever
@@ -138,6 +138,12 @@ you change them.
 ---
 
 ## Changelog
+
+### 1.1.1 (2026-11-18)
+- Hub list rebuilt from the 32 hub pages on iaspaces.co (the old 15-hub file was wrong for 10 hubs).
+- Citations: real listing URLs from myHQ, CoworkingCafe and Houssed; "No Listing Found" status for directories without a listing; listings still named "India Accelerator" are flagged.
+- Mention snippets come from the article text, not the site menu.
+- Hub & Oak (a competitor operator) removed from the competitor seed list.
 
 ### 1.1.0 (2026-11-17), fixes from the project audit
 - Dry runs no longer write to the Sheet or the real cache.

@@ -10,6 +10,7 @@ Statuses:
   "Matches Master NAP"        - every available check passed on the live page;
   "Correction Needed"         - the page loaded but at least one check failed;
   "Could Not Verify"          - the page could not be fetched (blocked / error) -> check by hand;
+  "No Listing Found"          - no listing URL yet: create or claim one on that directory;
   "Placeholder URL"           - the seed URL is a placeholder; replace it with the real listing;
   "Unknown Hub"               - hub_name does not match a Business Name in the master NAP.
 It never submits or edits listings.
@@ -63,7 +64,7 @@ class CitationTracker:
 
     @staticmethod
     def is_placeholder(url: str) -> bool:
-        return not url or any(p.search(url) for p in PLACEHOLDER_PATTERNS)
+        return any(p.search(url or "") for p in PLACEHOLDER_PATTERNS)
 
     def audit_listing(self, directory_name: str, listing_url: str, hub_name: str, **_ignored) -> Dict[str, Any]:
         master = self.master_hubs.get((hub_name or "").lower().strip())
@@ -84,6 +85,12 @@ class CitationTracker:
         if not master:
             record.update(nap_status="Unknown Hub",
                           notes=f"Hub '{hub_name}' is not a Business Name in the master NAP file.")
+            return record
+
+        if not (listing_url or "").strip():
+            record.update(nap_status="No Listing Found",
+                          correction_required=f"Create or claim an IA Spaces listing on {directory_name}, "
+                                              f"then add its URL to data/citations_seed.csv")
             return record
 
         if self.is_placeholder(listing_url):
@@ -125,10 +132,14 @@ class CitationTracker:
         else:
             problems.append("No link to iaspaces.co on listing")
 
+        # Brand name: listings still titled "India Accelerator" split the brand signal.
+        if "ia spaces" not in page_text.lower():
+            problems.append('Listing name does not include "IA Spaces"')
+
         if problems:
             record.update(nap_status="Correction Needed", correction_required="; ".join(problems),
                           notes=f"Passed: {', '.join(passed) or 'none'}")
         else:
             record.update(nap_status="Matches Master NAP", correction_required="None",
-                          notes="Phone, PIN code and website found on the live listing.")
+                          notes="Name, phone, PIN code and website found on the live listing.")
         return record

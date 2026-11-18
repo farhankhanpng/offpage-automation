@@ -7,3 +7,20 @@
 # The IDs below are listed as well so they can never come back.
 BL-7A8B9C0D        # dry-run fixture "Verified parent ecosystem link" (never checked)
 BL-4E5F6A1B        # dry-run fixture
+
+# 2026-11-18 correction: the old hub list (15 hubs, 10 with wrong details) was replaced by
+# 32 hubs read from iaspaces.co. Citation rows keyed to the old hub names are retired.
+CIT-AFD56301A5
+CIT-6DF16FCAD4
+CIT-C8D557D2EE
+CIT-8F6AC9B584
+CIT-CBE87CECF9
+CIT-3A7CD107E9
+CIT-3567D27BFE
+CIT-CDFA689523
+CIT-B9A77F495F
+# Hub & Oak is a coworking operator (a competitor), not an outreach target
+OPP-D4AAA18474
+COMP-B335A392FC
+COMP-A4ECC3A166
+OUT-4AD683A638

@@ -91,6 +91,7 @@ def parse_html_content(html: str, base_url: str = "") -> Dict[str, Any]:
             "canonical": "",
             "links": [],
             "body_text": "",
+            "main_text": "",
         }
 
     # Attempt BeautifulSoup if installed
@@ -128,12 +129,26 @@ def parse_html_content(html: str, base_url: str = "") -> Dict[str, Any]:
 
         # Separator " " stops words in adjacent tags running together ("StoryIA Spaces")
         body_text = " ".join((soup.body or soup).get_text(" ").split())
+
+        # Article text only: paragraphs, list items and sub-headings outside the site's
+        # navigation, header and footer. Used for mention snippets, so a snippet shows the
+        # sentence that names the brand rather than the menu.
+        container = soup.find("article") or soup.find("main") or soup.body or soup
+        blocks = []
+        for el in container.find_all(["p", "li", "h2", "h3", "blockquote", "td"]):
+            if el.find_parent(["nav", "header", "footer", "aside"]):
+                continue
+            text = " ".join(el.get_text(" ").split())
+            if len(text) >= 25:
+                blocks.append(text)
+        main_text = " ".join(blocks)
         return {
             "title": title,
             "meta_description": meta_desc,
             "canonical": canonical,
             "links": links,
-            "body_text": body_text
+            "body_text": body_text,
+            "main_text": main_text,
         }
     except ImportError:
         pass
@@ -150,7 +165,8 @@ def parse_html_content(html: str, base_url: str = "") -> Dict[str, Any]:
         "meta_description": parser.meta_description,
         "canonical": parser.canonical,
         "links": parser.links,
-        "body_text": " ".join(parser.text_chunks)
+        "body_text": " ".join(parser.text_chunks),
+        "main_text": " ".join(parser.text_chunks),
     }
 
 

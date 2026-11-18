@@ -75,7 +75,7 @@ class TestPipelines(unittest.TestCase):
         result = run_weekly_pipeline(base_dir=self.base, fetcher=FailingFetcher())
         self.assertEqual(result["competitors"], [])
         statuses = {c["nap_status"] for c in result["citations"]}
-        self.assertTrue(statuses <= {"Could Not Verify", "Placeholder URL"})
+        self.assertTrue(statuses <= {"Could Not Verify", "Placeholder URL", "No Listing Found"})
         self.assertEqual(result["health"].exit_code(), 2)
         self.assertEqual(read(os.path.join(self.base, "data", "sheets_offline_cache", "competitors.csv")), [])
 
@@ -154,20 +154,32 @@ class TestCitationTracker(unittest.TestCase):
 
     def test_matching_listing(self):
         t = CitationTracker(NAP, fetcher=PageFetcher({"https://dir.example/ia": self.page}))
-        r = t.audit_listing("Dir", "https://dir.example/ia", "IA Spaces - MGF Metropolis Mall")
+        r = t.audit_listing("Dir", "https://dir.example/ia", "IA Spaces - MG Road, Gurugram")
         self.assertEqual(r["nap_status"], "Matches Master NAP")
 
     def test_mismatched_listing(self):
         page = self.page.replace("122002", "110001").replace("22007", "99999")
         t = CitationTracker(NAP, fetcher=PageFetcher({"https://dir.example/ia": page}))
-        r = t.audit_listing("Dir", "https://dir.example/ia", "IA Spaces - MGF Metropolis Mall")
+        r = t.audit_listing("Dir", "https://dir.example/ia", "IA Spaces - MG Road, Gurugram")
         self.assertEqual(r["nap_status"], "Correction Needed")
         self.assertIn("PIN code 122002", r["correction_required"])
+
+    def test_listing_with_old_brand_name_needs_correction(self):
+        page = self.page.replace("IA Spaces - MGF Metropolis Mall", "India Accelerator - MG Road")
+        t = CitationTracker(NAP, fetcher=PageFetcher({"https://dir.example/ia": page}))
+        r = t.audit_listing("Dir", "https://dir.example/ia", "IA Spaces - MG Road, Gurugram")
+        self.assertEqual(r["nap_status"], "Correction Needed")
+        self.assertIn("IA Spaces", r["correction_required"])
+
+    def test_missing_listing(self):
+        t = CitationTracker(NAP, fetcher=FailingFetcher())
+        r = t.audit_listing("Justdial", "", "IA Spaces - MG Road, Gurugram")
+        self.assertEqual(r["nap_status"], "No Listing Found")
 
     def test_placeholder_and_unknown_hub(self):
         t = CitationTracker(NAP, fetcher=FailingFetcher())
         self.assertEqual(t.audit_listing("Justdial", "https://www.justdial.com/x/011PXX11",
-                                         "IA Spaces - MGF Metropolis Mall")["nap_status"], "Placeholder URL")
+                                         "IA Spaces - MG Road, Gurugram")["nap_status"], "Placeholder URL")
         self.assertEqual(t.audit_listing("Dir", "https://dir.example/a", "Unknown Hub")["nap_status"], "Unknown Hub")
 
 

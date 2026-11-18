@@ -2,7 +2,7 @@
 # Values here can be overridden from .env or the environment (see .env.example).
 app:
   name: "IA Spaces Off-Page SEO Engine"
-  version: "1.1.0"
+  version: "1.1.1"
   target_brand: "IA Spaces"
   target_website: "https://iaspaces.co"
   parent_brand: "India Accelerator"
@@ -16,7 +16,9 @@ brand_facts:
   cities: "25+"
   parent: "India Accelerator"
   website: "https://iaspaces.co"
-  checked: "2026-11-17 on the iaspaces.co homepage ('40+ Hubs', '25+ Cities')"
+  # The homepage says 40+ hubs in 25+ cities, but the site's hub pages list 32 hubs in 19 cities
+  # (2026-11-18). Confirm with the team which figure to publish, then update both values.
+  checked: "2026-11-17 on the iaspaces.co homepage ('40+ Hubs', '25+ Cities'); hub pages list 32 hubs in 19 cities"
 
 crawler:
   # An honest bot user agent with a contact. Robots.txt rules are checked for this agent.
