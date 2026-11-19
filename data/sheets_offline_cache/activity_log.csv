@@ -90,3 +90,10 @@ Timestamp,Action,Status,Details
 2026-11-18 15:17:11,SYNC,SUCCESS,Synced 2 records to tab 'Backlinks'
 2026-11-18 15:17:11,SYNC,SUCCESS,Synced 14 records to tab 'Dashboard'
 2026-11-18 15:17:11,WEEKLY_RUN,DEGRADED,citation check: 10/14 ok; competitor page: 3/3 ok; backlink check: 0/2 ok
+2026-11-19 10:04:34,SYNC,SUCCESS,Synced 18 records to tab 'Opportunities'
+2026-11-19 10:04:35,SYNC,SUCCESS,Synced 12 records to tab 'Brand_Mentions'
+2026-11-19 10:04:35,SYNC,SUCCESS,Synced 7 records to tab 'Competitors'
+2026-11-19 10:04:36,SYNC,SUCCESS,Synced 2 records to tab 'Backlinks'
+2026-11-19 10:04:36,SYNC,SUCCESS,Synced 15 records to tab 'Outreach'
+2026-11-19 10:04:37,SYNC,SUCCESS,Synced 14 records to tab 'Dashboard'
+2026-11-19 10:04:37,DAILY_RUN,DEGRADED,rss feed: 3/4 ok; gdelt query: 1/4 ok; candidate page: 6/7 ok; mention check: 5/6 ok; backlink check: 0/2 ok
