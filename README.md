@@ -139,6 +139,13 @@ you change them.
 
 ## Changelog
 
+### 1.2.0 (2026-11-23)
+- Outreach drafts rewritten as structured, professional emails: greeting, reference to the article, who IA Spaces is, a specific ask, and a full signature (website, info@iaspaces.co, phone).
+- Listicle drafts list the real IA Spaces hubs in the city the article covers, with their hub-page links, taken from data/ia-spaces-nap-master.csv.
+- Link requests suggest the exact hub page when the article is about one city's hub.
+- Commentary drafts offer on-record commentary from Ashish Bhatia, Founder & CEO, India Accelerator.
+- Services listed only as named on the iaspaces.co homepage. The sender is set in settings.yaml -> outreach.sender.
+
 ### 1.1.3 (2026-11-23)
 - No drafts for daily news roundups and trackers (YourStory's roundup was creating a new draft every day). Two roundup drafts retired.
 

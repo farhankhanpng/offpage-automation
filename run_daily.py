@@ -86,7 +86,9 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
     competitor_tracker = CompetitorTracker(competitors)
     backlink_monitor = BacklinkMonitor(fetcher=ctx.fetcher, legacy_targets=legacy_targets)
     scorer = OpportunityScorer()
-    outreach = OutreachDraftGenerator(ctx.settings.get("brand_facts"))
+    nap_rel = ctx.settings.get("paths", {}).get("master_nap_csv", "data/ia-spaces-nap-master.csv")
+    outreach = OutreachDraftGenerator(ctx.settings.get("brand_facts"), hubs=ctx.read_csv(nap_rel),
+                                      sender=outreach_cfg.get("sender"))
     discovery = DiscoveryEngine(ctx.settings, health=ctx.health,
                                 relevance_terms=list(brands) + [c["name"] for c in competitors])
 
