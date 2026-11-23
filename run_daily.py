@@ -39,12 +39,27 @@ from src.utils.url_utils import extract_domain  # noqa: E402
 
 logger = get_logger("DailyRunner")
 
-BRAND_PRIORITY = ["ia spaces", "iaspaces.co", "india accelerator coworking", "india accelerator spaces", "mysoho", "india accelerator"]
+# The brand a link request is about: IA Spaces first, then the parent's name, and the old
+# MySOHO name last (MySOHO was acquired and now operates as part of IA Spaces).
+BRAND_PRIORITY = ["ia spaces", "iaspaces.co", "india accelerator coworking", "india accelerator spaces",
+                  "india accelerator", "mysoho"]
+
+
+# News digests (one per day) and data trackers are not pitch targets: each new edition would
+# create another draft to a different journalist at the same publication.
+DIGEST_TITLE_TERMS = ["daily roundup", "weekly roundup", "news roundup", "startup news and updates",
+                      "news and updates", "live updates", "funding roundup", "weekly wrap", "tracker"]
+
+
+def is_digest_page(title: str) -> bool:
+    t = (title or "").lower()
+    return any(term in t for term in DIGEST_TITLE_TERMS)
 
 
 def pick_unlinked(mentions: List[Dict[str, Any]]):
-    """The unlinked mention to pitch: prefer the IA Spaces brand over the parent brand."""
-    unlinked = [m for m in mentions if m.get("is_unlinked")]
+    """The unlinked mention to pitch. Only workspace mentions qualify (an India Accelerator
+    funding story should not be asked to link to iaspaces.co); IA Spaces is preferred."""
+    unlinked = [m for m in mentions if m.get("is_unlinked") and m.get("pitchable", True)]
     if not unlinked:
         return None
 
@@ -120,7 +135,7 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
             "scoring_breakdown": score["breakdown"],
         })
 
-        if res.get("ok") and scorer.qualifies_for_outreach(score, min_score):
+        if res.get("ok") and scorer.qualifies_for_outreach(score, min_score) and not is_digest_page(title):
             unlinked = pick_unlinked(page_mentions)
             if unlinked:
                 angle = "Unlinked Brand Mention"

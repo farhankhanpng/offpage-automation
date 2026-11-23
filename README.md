@@ -139,6 +139,14 @@ you change them.
 
 ## Changelog
 
+### 1.1.3 (2026-11-23)
+- No drafts for daily news roundups and trackers (YourStory's roundup was creating a new draft every day). Two roundup drafts retired.
+
+### 1.1.2 (2026-11-19)
+- Link requests are only drafted for mentions about coworking. India Accelerator mentions in funding or startup news are still recorded, marked "not about coworking, no link request".
+- Link-request drafts name IA Spaces in the subject, and India Accelerator ahead of the old MySOHO name.
+- Two drafts that should not be sent (YourStory roundups) are retired.
+
 ### 1.1.1 (2026-11-18)
 - Hub list rebuilt from the 32 hub pages on iaspaces.co (the old 15-hub file was wrong for 10 hubs).
 - Citations: real listing URLs from myHQ, CoworkingCafe and Houssed; "No Listing Found" status for directories without a listing; listings still named "India Accelerator" are flagged.

@@ -50,6 +50,23 @@ class TestMentionMonitor(unittest.TestCase):
         self.assertEqual(res[0]["has_hyperlink"], "No")
         self.assertTrue(res[0]["is_unlinked"])
 
+    def test_funding_news_mention_is_not_pitched(self):
+        html = """<html><head><title>Startup news and updates: daily roundup</title></head><body><main>
+            <p>Venture capital fund Finvolve and India Accelerator have invested an undisclosed amount
+            in Bengaluru-based Soket AI Labs as part of its seed funding round.</p></main></body></html>"""
+        res = self.monitor.inspect_content("https://news.example.com/roundup", html)
+        self.assertEqual(res[0]["brand"], "India Accelerator")
+        self.assertTrue(res[0]["is_unlinked"])
+        self.assertFalse(res[0]["pitchable"])
+        self.assertIn("not about coworking", res[0]["verification_status"])
+
+    def test_coworking_mention_of_parent_is_pitched(self):
+        html = """<html><head><title>India Accelerator opens new co-working centre in Surat</title></head>
+            <body><p>India Accelerator has opened a 10,000 sq ft centre in Surat.</p></body></html>"""
+        res = self.monitor.inspect_content("https://news.example.com/surat", html)
+        self.assertTrue(res[0]["pitchable"])
+        self.assertEqual(res[0]["verification_status"], "Verified (Live Page)")
+
     def test_whole_word_matching_avoids_false_positives(self):
         html = "<html><body><p>The best India spaces for remote work, and Asia Spaces too.</p></body></html>"
         self.assertEqual(self.monitor.inspect_content("https://x.example.com/a", html), [])

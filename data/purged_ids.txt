@@ -24,3 +24,8 @@ OPP-D4AAA18474
 COMP-B335A392FC
 COMP-A4ECC3A166
 OUT-4AD683A638
+# 2026-11-19: drafts that should not be sent
+OUT-FC13F95EEC     # YourStory roundup: India Accelerator funding news, not coworking (no link request)
+OUT-76CC1C174B     # YourStory roundup (16 Nov): stale draft addressed to one person as "Editorial Team"
+OUT-979324D8B1     # YourStory daily roundup (19 Nov): news digest, not a pitch target
+OUT-ACFC7260FB     # YourStory daily roundup (20 Nov): news digest, not a pitch target

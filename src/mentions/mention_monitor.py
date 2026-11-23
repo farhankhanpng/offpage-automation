@@ -5,6 +5,12 @@ Inspects page HTML and classifies each brand mention:
   - "Yes (elsewhere on page)" - the page links to iaspaces.co, but not from the brand words;
   - "No"                     - no link to iaspaces.co at all (a reclamation target).
 Brand names are matched as whole words, so "India spaces" no longer counts as "IA Spaces".
+
+"India Accelerator" is also a startup accelerator and investor, so many of its mentions are
+about funding rounds, not coworking. Each mention is therefore marked "pitchable" only when
+it is about workspace (IA Spaces and MySOHO always are; India Accelerator only when the page
+title or the text around the mention uses workspace words). Link requests are only drafted
+for pitchable mentions.
 """
 
 from typing import Any, Dict, List, Optional
@@ -20,6 +26,24 @@ logger = get_logger("MentionMonitor")
 
 DEFAULT_BRANDS = ["IA Spaces", "India Accelerator", "MySOHO"]
 TARGET_DOMAINS = ["iaspaces.co", "www.iaspaces.co"]
+
+# Brands that only ever mean the coworking business
+WORKSPACE_BRANDS = {"ia spaces", "iaspaces.co", "mysoho", "india accelerator coworking", "india accelerator spaces"}
+# Words that show a mention is about workspace rather than startup investing
+WORKSPACE_TERMS = [
+    "coworking", "co-working", "cowork", "co-work", "workspace", "workspaces", "work space",
+    "office space", "office spaces", "managed office", "managed offices", "flexible office",
+    "flex space", "flexible workspace", "desks", "seats", "IA Spaces", "MySOHO",
+]
+NOT_WORKSPACE_STATUS = "Verified (Live Page) - not about coworking, no link request"
+
+
+def is_workspace_mention(brand: str, page_title: str, context: str) -> bool:
+    """True when this mention is about the coworking business (so iaspaces.co is the right link)."""
+    if brand.strip().lower() in WORKSPACE_BRANDS:
+        return True
+    text = f"{page_title} {context}"
+    return any(contains_phrase(text, term) for term in WORKSPACE_TERMS)
 
 
 class MentionMonitor:
@@ -81,6 +105,13 @@ class MentionMonitor:
             else:
                 has_link = "No"
 
+            context = (find_mention_context(parsed.get("main_text", ""), brand, window=120)
+                       or find_mention_context(body_text, brand, window=120))
+            # A wider window for the topic check than for the snippet shown in the Sheet
+            topic_text = (find_mention_context(parsed.get("main_text", ""), brand, window=250)
+                          or find_mention_context(body_text, brand, window=250))
+            pitchable = has_link == "No" and is_workspace_mention(brand, title, topic_text)
+
             mentions.append({
                 "id": generate_stable_id(f"{url}::{brand}", prefix="MEN"),
                 "brand": brand,
@@ -89,14 +120,15 @@ class MentionMonitor:
                 "page_title": title or "Untitled Page",
                 "domain": domain,
                 "discovery_date": now_str,
-                "context": find_mention_context(parsed.get("main_text", ""), brand, window=120)
-                           or find_mention_context(body_text, brand, window=120),
+                "context": context,
                 "has_hyperlink": has_link,
                 "link_destination": chosen.get("href", "") if chosen else "",
                 "anchor_text": chosen.get("anchor_text", "") if chosen else "",
-                "verification_status": "Verified (Live Page)",
+                "verification_status": ("Verified (Live Page)" if has_link != "No" or pitchable
+                                        else NOT_WORKSPACE_STATUS),
                 "source": source_label,
                 "is_unlinked": has_link == "No",
+                "pitchable": pitchable,
             })
         return mentions
 

@@ -60,10 +60,17 @@ class OutreachDraftGenerator:
         signoff = f"Team IA Spaces ({f['parent']})\n{f['website']}"
 
         if angle == "Unlinked Brand Mention":
-            subject = f"Thank you for mentioning {brand} - a quick link request"
+            # The subject always names IA Spaces; the body names the brand the article used.
+            subject = "Thank you for covering IA Spaces - a quick link request"
+            if brand.strip().lower() in ("ia spaces", "iaspaces.co"):
+                intro = f"Thank you for mentioning IA Spaces in {piece} on {domain}:\n{target_url}\n\n"
+            else:
+                intro = (
+                    f"Thank you for mentioning {brand} in {piece} on {domain}:\n{target_url}\n\n"
+                    f"IA Spaces is the coworking network of {f['parent']}. "
+                )
             body = (
-                f"Hi {name},\n\n"
-                f"Thank you for mentioning {brand} in {piece} on {domain}:\n{target_url}\n\n"
+                f"Hi {name},\n\n{intro}"
                 f"Would you consider linking the mention to our official site, {f['website']}, "
                 f"so readers can find the hub details directly?\n\n"
                 f"Thanks for the coverage either way.\n\n{signoff}"

@@ -123,6 +123,28 @@ class TestPipelines(unittest.TestCase):
         self.assertIn("IA Spaces", drafts[0]["proposed_subject"])
         self.assertNotIn("40% YoY", drafts[0]["draft_email"])
 
+    def test_mysoho_article_draft_names_ia_spaces_not_mysoho(self):
+        url = "https://www.devdiscourse.com/article/business/3636320-india-accelerators-pioneering-mysoho-acquisition-a-new-era-for-co-working-spaces"
+        html = ("<html><head><title>India Accelerator's MySOHO Acquisition: A New Era for Co-Working Spaces</title></head>"
+                "<body><p>India Accelerator has acquired co-working company MySOHO.</p></body></html>")
+        result = run_daily_pipeline(base_dir=self.base, use_feeds=False, fetcher=PageFetcher({url: html}))
+        drafts = [d for d in result["drafts"] if d["target_url"] == url]
+        self.assertEqual(len(drafts), 1)
+        self.assertEqual(drafts[0]["proposed_subject"], "Thank you for covering IA Spaces - a quick link request")
+        self.assertIn("Thank you for mentioning India Accelerator", drafts[0]["draft_email"])
+        self.assertIn("IA Spaces is the coworking network of India Accelerator", drafts[0]["draft_email"])
+
+    def test_daily_news_roundups_get_no_draft(self):
+        from run_daily import is_digest_page
+        self.assertTrue(is_digest_page("Startup news and updates: Daily roundup (November 20, 2026)"))
+        self.assertTrue(is_digest_page("Indian Listed New-Age Tech Company Tracker: Market Cap"))
+        self.assertFalse(is_digest_page("The Top 10 Best Coworking Spaces in Gurgaon"))
+
+    def test_india_accelerator_funding_story_gets_no_link_request(self):
+        from run_daily import pick_unlinked
+        mentions = [{"brand": "India Accelerator", "is_unlinked": True, "pitchable": False}]
+        self.assertIsNone(pick_unlinked(mentions))
+
     def test_backlink_to_legacy_parent_page_is_flagged(self):
         html = "<html><body><a href='https://www.indiaaccelerator.co/ia-spaces/'>IA Spaces</a></body></html>"
         result = run_daily_pipeline(base_dir=self.base, use_feeds=False, fetcher=PageFetcher({"https://www.indiaaccelerator.co/": html}))
