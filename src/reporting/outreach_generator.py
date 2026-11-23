@@ -98,22 +98,19 @@ class OutreachDraftGenerator:
 
     def _signature(self) -> str:
         f, s = self.facts, self.sender
-        lines = ["Warm regards,", ""]
-        if s["name"]:
-            lines.append(s["name"])
-            if s["title"]:
-                lines.append(s["title"])
-            lines.append(f"IA Spaces, the coworking network of {f['parent']}")
-        else:
-            lines.append("Team IA Spaces")
-            lines.append(f"The coworking network of {f['parent']}")
         contact = [f["website"]]
         if s["email"]:
             contact.append(s["email"])
         if f.get("phone"):
             contact.append(f["phone"])
-        lines.append(" | ".join(contact))
-        return "\n".join(lines)
+        return "\n".join([
+            "Warm regards,",
+            "",
+            s["name"] or "XXX",
+            s["title"] or "Marketing Manager",
+            f"IA Spaces, the coworking network of {f['parent']}",
+            " | ".join(contact),
+        ])
 
     @staticmethod
     def _greeting(contact_name: Optional[str]) -> str:
@@ -122,9 +119,33 @@ class OutreachDraftGenerator:
             return "Dear Editor,"
         return f"Dear {name},"
 
+    def _intro(self) -> str:
+        s = self.sender
+        name = s["name"] or "XXX"
+        title = s["title"] or "Marketing Manager"
+        return f"My name is {name}, and I am the {title} at IA Spaces."
+
+    def _offer_block(self) -> str:
+        f = self.facts
+        return (
+            "What IA Spaces offers:\n"
+            "  - Dedicated desks, private cabins, private suites and fully managed office spaces\n"
+            "  - Virtual office: a business address for registration and mail\n"
+            "  - Private meeting rooms, plus events and workshops for members\n"
+            f"  - Depending on plan and eligibility, access to {f['parent']}'s mentors, "
+            "investor network and accelerator programmes"
+        )
+
+    @staticmethod
+    def _connect_ask() -> str:
+        return ("I would also be very grateful for a chance to connect, in whatever way suits you "
+                "best (a short call, a video meeting, or a visit to one of our hubs), to tell you "
+                "more about IA Spaces in detail and to understand how we could be useful to you and "
+                "your readers.")
+
     def _about(self) -> str:
         f = self.facts
-        return (f"IA Spaces is the coworking and managed-office network of {f['parent']}, "
+        return (f"We are the coworking and managed-office network of {f['parent']}, "
                 f"with {f['hubs']} hubs across {f['cities']} Indian cities, from metros such as "
                 f"Gurugram, Noida and Mumbai to growing cities such as Chandigarh, Surat and Jaipur.")
 
@@ -150,9 +171,13 @@ class OutreachDraftGenerator:
         cities = self._cities_in(f"{title} {evidence}")
         signature = self._signature()
 
+        intro = self._intro()
+        offer = self._offer_block()
+        connect = self._connect_ask()
+
         if angle == "Unlinked Brand Mention":
-            subject = f"Thank you for covering IA Spaces: a small link request for {piece}" if title \
-                else "Thank you for covering IA Spaces: a small link request"
+            subject = (f"Thank you for covering IA Spaces in {piece}" if title
+                       else "Thank you for covering IA Spaces")
             if brand.strip().lower() in ("ia spaces", "iaspaces.co"):
                 who = ""
             else:
@@ -164,15 +189,16 @@ class OutreachDraftGenerator:
                 target = city_hubs[0].get("Website", "").strip() or target
             body = (
                 f"{greeting}\n\n"
-                f"Thank you for covering us in {piece} on {domain}:\n{target_url}\n\n"
-                f"{who}A small request: the article mentions us but does not link to us. Would you be "
-                f"willing to add a link to {target}? It would help readers who want to look up the "
-                f"hub, its location or how to book a visit, and it points them to our official "
-                f"site.\n\n"
-                f"Suggested change: link the words \"IA Spaces\" (or \"{brand}\") to {target}\n\n"
-                f"If you are updating the article anyway, we are happy to share current hub details "
-                f"or a short quote from {f['spokesperson']}, {f['spokesperson_title']}.\n\n"
-                f"Thank you again for the coverage, whether or not a link is possible.\n\n{signature}"
+                f"I hope you are doing well. {intro}\n\n"
+                f"I wanted to sincerely thank you for covering us in {piece} on {domain}:\n{target_url}\n\n"
+                f"{who}We are grateful for the coverage, and I hope you will not mind a small request. "
+                f"The article mentions us but does not link to our website. If it is possible, would you "
+                f"kindly consider linking the words \"IA Spaces\" (or \"{brand}\") to {target}? It "
+                f"would help your readers find the hub and its details easily.\n\n"
+                f"I would also be grateful if you could include IA Spaces by name in this article, "
+                f"so readers know where to find us.\n\n"
+                f"{connect}\n\n"
+                f"Thank you once again for your time and for writing about us.\n\n{signature}"
             )
 
         elif angle == "Listicle Inclusion":
@@ -180,59 +206,57 @@ class OutreachDraftGenerator:
             hub_lines = self._hub_lines(city) if city else ""
             n = len(self._hubs_in(city)) if city else 0
             count = f"{n} hub{'s' if n != 1 else ''} in {city}"
-            subject = (f"Suggestion for your list {piece}: IA Spaces ({count})"
-                       if hub_lines else f"Suggestion for your list {piece}: IA Spaces")
-            where = f"in {city}" if hub_lines else "in India"
-            hubs_block = (f"Our hubs {where}:\n{hub_lines}\n\n" if hub_lines else "")
+            subject = (f"A humble request to include IA Spaces in {piece}" if title
+                       else "A humble request to include IA Spaces in your list")
+            hubs_block = (f"We currently have {count}:\n{hub_lines}\n\n" if hub_lines else "")
             body = (
                 f"{greeting}\n\n"
-                f"I enjoyed reading {piece} on {domain}:\n{target_url}\n\n"
-                f"When you next update it, we would like to suggest IA Spaces for inclusion. "
-                f"{self._about()}\n\n"
+                f"I hope you are doing well. {intro}\n\n"
+                f"I recently came across {piece} on {domain} and found it genuinely useful:\n{target_url}\n\n"
+                f"I would like to briefly introduce IA Spaces. {self._about()}\n\n"
                 f"{hubs_block}"
-                f"What IA Spaces offers:\n"
-                f"  - Dedicated desks, private cabins, private suites and fully managed office spaces\n"
-                f"  - Virtual office: a business address for registration and mail\n"
-                f"  - Private meeting rooms, plus events and workshops for members\n"
-                f"  - Depending on plan and eligibility, access to {f['parent']}'s mentors, "
-                f"investor network and accelerator programmes\n\n"
-                f"If useful, I can send a short write-up for the entry, hub photos and contact details "
-                f"for each location. Full hub details are at {f['website']}.\n\n"
-                f"Thank you for considering it.\n\n{signature}"
+                f"{offer}\n\n"
+                f"I would be grateful if you could include IA Spaces in this article. I would be happy to send "
+                f"a short write-up for the entry, hub photos and contact details for each location, so it "
+                f"takes as little of your time as possible.\n\n"
+                f"{connect}\n\n"
+                f"Thank you for your time and consideration.\n\n{signature}"
             )
 
         elif angle == "Tier-2 Expansion / Commentary":
-            subject = f"Expert commentary for {domain}: flexible workspace demand beyond the metros"
+            subject = f"Introducing IA Spaces: a possible resource for {domain} on workspaces beyond the metros"
             body = (
                 f"{greeting}\n\n"
-                f"I read {piece} on {domain} with interest:\n{target_url}\n\n"
-                f"{self._about()}\n\n"
-                f"For your upcoming stories on startup ecosystems or flexible workspaces outside the "
-                f"metros, {f['spokesperson']}, {f['spokesperson_title']}, is available for "
-                f"on-record commentary on:\n"
+                f"I hope you are doing well. {intro}\n\n"
+                f"I read {piece} on {domain} with great interest:\n{target_url}\n\n"
+                f"I would like to briefly introduce IA Spaces. {self._about()}\n\n"
+                f"{offer}\n\n"
+                f"I would be grateful if you could include IA Spaces in this article, or in your future "
+                f"stories on startup ecosystems and flexible workspaces outside the metros. "
+                f"{f['spokesperson']}, {f['spokesperson_title']}, would also be glad to share his views on:\n"
                 f"  - why startups and enterprise teams are choosing flexible offices in Tier-2 cities\n"
                 f"  - how an accelerator-backed workspace network supports early-stage founders\n"
                 f"  - what operators need to get right when opening outside the metros\n\n"
-                f"We can provide a written quote, a short call or background information, to suit "
-                f"your deadline.\n\n"
-                f"More about us: {f['website']}\n\n{signature}"
+                f"{connect}\n\n"
+                f"Thank you for your time and consideration.\n\n{signature}"
             )
 
         else:  # Industry Commentary
-            subject = f"Expert commentary for {domain}: India's flexible workspace market"
+            subject = f"Introducing IA Spaces: a possible resource for {domain} on flexible workspaces"
             body = (
                 f"{greeting}\n\n"
-                f"I came across {piece} on {domain}:\n{target_url}\n\n"
-                f"{self._about()}\n\n"
-                f"If you are planning further coverage of coworking, managed offices or flexible "
-                f"workspaces in India, {f['spokesperson']}, {f['spokesperson_title']}, is available "
-                f"for on-record commentary on:\n"
+                f"I hope you are doing well. {intro}\n\n"
+                f"I came across {piece} on {domain} and enjoyed reading it:\n{target_url}\n\n"
+                f"I would like to briefly introduce IA Spaces. {self._about()}\n\n"
+                f"{offer}\n\n"
+                f"I would be grateful if you could include IA Spaces in this article, or in your future "
+                f"coverage of coworking, managed offices and flexible workspaces in India. "
+                f"{f['spokesperson']}, {f['spokesperson_title']}, would also be glad to share his views on:\n"
                 f"  - demand for flexible and managed offices from startups and enterprises\n"
                 f"  - growth of workspace demand in Tier-2 cities\n"
                 f"  - how founders choose a workspace at each stage of growth\n\n"
-                f"We can provide a written quote, a short call or background information, to suit "
-                f"your deadline.\n\n"
-                f"More about us: {f['website']}\n\n{signature}"
+                f"{connect}\n\n"
+                f"Thank you for your time and consideration.\n\n{signature}"
             )
 
         return {

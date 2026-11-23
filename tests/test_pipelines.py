@@ -131,10 +131,11 @@ class TestPipelines(unittest.TestCase):
         drafts = [d for d in result["drafts"] if d["target_url"] == url]
         self.assertEqual(len(drafts), 1)
         self.assertTrue(drafts[0]["proposed_subject"].startswith("Thank you for covering IA Spaces"))
-        self.assertNotIn("MySOHO", drafts[0]["proposed_subject"].split(":")[0])
         self.assertIn("The article refers to India Accelerator", drafts[0]["draft_email"])
         self.assertIn("IA Spaces is the coworking network of India Accelerator", drafts[0]["draft_email"])
         self.assertIn("Dear Editor,", drafts[0]["draft_email"])
+        self.assertIn("I would also be grateful if you could include IA Spaces by name in this article", drafts[0]["draft_email"])
+        self.assertNotIn("completely understand", drafts[0]["draft_email"])
 
     def test_listicle_draft_lists_the_city_hubs_from_the_hub_file(self):
         from src.reporting.outreach_generator import OutreachDraftGenerator
@@ -144,7 +145,12 @@ class TestPipelines(unittest.TestCase):
             publication="x.in", target_url="https://x.in/best-coworking-gurgaon", angle="Listicle Inclusion",
             page_title="Best Coworking Spaces in Gurgaon")
         self.assertIn("IA Spaces MG Road (Sector 28): https://iaspaces.co/gurgaon/mg-road/", d["draft_email"])
-        self.assertIn("(1 hub in Gurugram)", d["proposed_subject"])
+        self.assertIn("We currently have 1 hub in Gurugram:", d["draft_email"])
+        self.assertIn("include IA Spaces", d["proposed_subject"])
+        self.assertIn("My name is XXX, and I am the Marketing Manager at IA Spaces.", d["draft_email"])
+        self.assertIn("a chance to connect", d["draft_email"])
+        self.assertIn("I would be grateful if you could include IA Spaces in this article.", d["draft_email"])
+        self.assertIn("XXX\nMarketing Manager\nIA Spaces", d["draft_email"])
 
     def test_daily_news_roundups_get_no_draft(self):
         from run_daily import is_digest_page

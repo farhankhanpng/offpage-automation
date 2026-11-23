@@ -2,7 +2,7 @@
 # Values here can be overridden from .env or the environment (see .env.example).
 app:
   name: "IA Spaces Off-Page SEO Engine"
-  version: "1.2.0"
+  version: "1.2.2"
   target_brand: "IA Spaces"
   target_website: "https://iaspaces.co"
   parent_brand: "India Accelerator"
@@ -45,10 +45,10 @@ sheets:
 outreach:
   # Minimum score for a draft. Drafts are only created for pages that were fetched.
   min_score: 65
-  # Who signs the drafts. Leave name empty to sign as "Team IA Spaces".
+  # Who signs the drafts. "XXX" is a placeholder: replace it with the real name before sending.
   sender:
-    name: ""
-    title: ""
+    name: "XXX"
+    title: "Marketing Manager"
     email: "info@iaspaces.co"
 
 discovery:

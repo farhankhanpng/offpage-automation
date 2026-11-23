@@ -139,6 +139,13 @@ you change them.
 
 ## Changelog
 
+### 1.2.2 (2026-11-23)
+- Every draft asks: "I would be grateful if you could include IA Spaces in this article". The "I completely understand if this is not possible" line is removed.
+
+### 1.2.1 (2026-11-23)
+- Drafts are written in a humbler tone: the Marketing Manager introduces themselves, introduces IA Spaces, asks politely for inclusion, and asks to connect (call, video meeting or hub visit) to discuss IA Spaces in detail.
+- Sender name is the placeholder "XXX" (settings.yaml -> outreach.sender); replace it before sending.
+
 ### 1.2.0 (2026-11-23)
 - Outreach drafts rewritten as structured, professional emails: greeting, reference to the article, who IA Spaces is, a specific ask, and a full signature (website, info@iaspaces.co, phone).
 - Listicle drafts list the real IA Spaces hubs in the city the article covers, with their hub-page links, taken from data/ia-spaces-nap-master.csv.
