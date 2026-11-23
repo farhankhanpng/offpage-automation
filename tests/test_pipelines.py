@@ -130,27 +130,33 @@ class TestPipelines(unittest.TestCase):
         result = run_daily_pipeline(base_dir=self.base, use_feeds=False, fetcher=PageFetcher({url: html}))
         drafts = [d for d in result["drafts"] if d["target_url"] == url]
         self.assertEqual(len(drafts), 1)
-        self.assertTrue(drafts[0]["proposed_subject"].startswith("Thank you for covering IA Spaces"))
-        self.assertIn("The article refers to India Accelerator", drafts[0]["draft_email"])
-        self.assertIn("IA Spaces is the coworking network of India Accelerator", drafts[0]["draft_email"])
-        self.assertIn("Dear Editor,", drafts[0]["draft_email"])
-        self.assertIn("I would also be grateful if you could include IA Spaces by name in this article", drafts[0]["draft_email"])
-        self.assertNotIn("completely understand", drafts[0]["draft_email"])
+        body = drafts[0]["draft_email"]
+        self.assertTrue(drafts[0]["proposed_subject"].startswith("Thank you for featuring IA Spaces"))
+        self.assertIn("thank you for mentioning India Accelerator", body)
+        self.assertIn("mentioning IA Spaces by name in the article and linking it to", body)
+        self.assertIn("Hi Editor,", body)
+        self.assertNotIn("completely understand", body)
 
-    def test_listicle_draft_lists_the_city_hubs_from_the_hub_file(self):
+    def test_listicle_draft_follows_the_approved_template(self):
         from src.reporting.outreach_generator import OutreachDraftGenerator
         hubs = [{"Business Name": "IA Spaces - MG Road, Gurugram", "City": "Gurugram",
-                 "Address Line 2": "Sector 28", "Website": "https://iaspaces.co/gurgaon/mg-road/"}]
-        d = OutreachDraftGenerator(hubs=hubs).generate_draft(
+                 "Address Line 2": "Sector 28", "Website": "https://iaspaces.co/gurgaon/mg-road/"},
+                {"Business Name": "IA Spaces - Imperia, Gurugram", "City": "Gurugram",
+                 "Address Line 2": "Sector 62", "Website": "https://iaspaces.co/gurgaon/imperia/"}]
+        d = OutreachDraftGenerator(hubs=hubs, sender={"name": "Ishmeet", "title": "Marketing Manager"}).generate_draft(
             publication="x.in", target_url="https://x.in/best-coworking-gurgaon", angle="Listicle Inclusion",
             page_title="Best Coworking Spaces in Gurgaon")
-        self.assertIn("IA Spaces MG Road (Sector 28): https://iaspaces.co/gurgaon/mg-road/", d["draft_email"])
-        self.assertIn("We currently have 1 hub in Gurugram:", d["draft_email"])
-        self.assertIn("include IA Spaces", d["proposed_subject"])
-        self.assertIn("My name is XXX, and I am the Marketing Manager at IA Spaces.", d["draft_email"])
-        self.assertIn("a chance to connect", d["draft_email"])
-        self.assertIn("I would be grateful if you could include IA Spaces in this article.", d["draft_email"])
-        self.assertIn("XXX\nMarketing Manager\nIA Spaces", d["draft_email"])
+        body = d["draft_email"]
+        order = ["Hi Editor,", "I hope you are doing well.", "I'm Ishmeet, Marketing Manager at IA Spaces",
+                 'I came across your article, "Best Coworking Spaces in Gurgaon"', "featuring IA Spaces in the list",
+                 "IA Spaces offers flexible coworking", "Here are a few of our Gurugram locations for reference:",
+                 "- IA Spaces MG Road: https://iaspaces.co/gurgaon/mg-road/",
+                 "We would appreciate it if you could consider including IA Spaces in the article.",
+                 "I'd also be happy to connect over a quick call", "Looking forward to hearing from you.",
+                 "Warm regards,\nIshmeet\nMarketing Manager | IA Spaces\nThe Coworking & Managed Office Network of India Accelerator"]
+        pos = [body.index(x) for x in order]
+        self.assertEqual(pos, sorted(pos))
+        self.assertNotIn("Dedicated desks", body)
 
     def test_daily_news_roundups_get_no_draft(self):
         from run_daily import is_digest_page

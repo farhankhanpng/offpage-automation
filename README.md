@@ -139,6 +139,9 @@ you change them.
 
 ## Changelog
 
+### 1.3.0 (2026-11-23)
+- Drafts shortened to: who we are, where we are present (the article's city hubs, then every city), the request to include IA Spaces in the article, and a closing offer of a call to discuss future possibilities. No facilities, offers, quotes or hub counts.
+
 ### 1.2.2 (2026-11-23)
 - Every draft asks: "I would be grateful if you could include IA Spaces in this article". The "I completely understand if this is not possible" line is removed.
 
