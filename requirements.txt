@@ -10,7 +10,7 @@ gspread>=6.1,<7
 google-auth>=2.27,<3
 
 # HTML & feed parsing (standard-library fallbacks exist in src/utils and src/discovery)
-beautifulsoup4>=4.12.3,<5
+beautifulsoup4>=4.15.0,<5
 feedparser>=6.0.10,<7
 
 # Windows needs this for the Asia/Kolkata time zone (harmless elsewhere)
