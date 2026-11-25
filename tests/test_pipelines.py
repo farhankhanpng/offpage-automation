@@ -139,7 +139,8 @@ class TestPipelines(unittest.TestCase):
         self.assertTrue(drafts[0]["proposed_subject"].startswith("Thank you for featuring IA Spaces"))
         self.assertIn("wanted to thank you for mentioning India Accelerator.", body)
         self.assertIn("mentioning IA Spaces by name in your article and linking it to", body)
-        self.assertIn(f"({url})", body)
+        self.assertIn(f"Article link: {url}\n", body)
+        self.assertIn("linking it to this page:\nhttps://iaspaces.co\n", body)
         self.assertTrue(body.startswith("Dear Editor,"))
 
     def test_listicle_draft_follows_the_reference_email(self):
@@ -157,18 +158,19 @@ class TestPipelines(unittest.TestCase):
         body = d["draft_email"]
         order = [
             "Dear Editor,", "I hope you are doing well.",
-            f'I recently came across your article, "The Top 10 Best Coworking Spaces in Gurgaon" ({url}), '
+            'I recently came across your article, "The Top 10 Best Coworking Spaces in Gurgaon", '
             "and wanted to introduce IA Spaces for your consideration.",
+            f"Article link: {url}\n",
             "IA Spaces is the coworking and managed-office network of India Accelerator",
             "With 40+ hubs across 25+ cities",
             "Unlike conventional coworking spaces",
             "In Gurugram alone, IA Spaces operates six hubs across prominent business locations:",
-            "- MG Road (https://iaspaces.co/gurgaon/mg-road/)",
-            "- Imperia, Golf Course Extension Road (https://iaspaces.co/gurgaon/imperia/)",
-            "- Vatika Triangle, MG Road (https://iaspaces.co/gurgaon/vatika-triangle/)",
-            "- Udyog Vihar, Phase 4 (https://iaspaces.co/gurgaon/udyog-vihar/)",
-            "- BPTP Centra One, Golf Course Extension Road (https://iaspaces.co/gurgaon/bptp-centra-one/)",
-            "- Cyber Green, DLF Phase 3 (https://iaspaces.co/gurgaon/cyber-green/)",
+            "- MG Road: https://iaspaces.co/gurgaon/mg-road/\n",
+            "- Imperia, Golf Course Extension Road: https://iaspaces.co/gurgaon/imperia/\n",
+            "- Vatika Triangle, MG Road: https://iaspaces.co/gurgaon/vatika-triangle/\n",
+            "- Udyog Vihar, Phase 4: https://iaspaces.co/gurgaon/udyog-vihar/\n",
+            "- BPTP Centra One, Golf Course Extension Road: https://iaspaces.co/gurgaon/bptp-centra-one/\n",
+            "- Cyber Green, DLF Phase 3: https://iaspaces.co/gurgaon/cyber-green/\n",
             "We would appreciate it if you could consider including IA Spaces in your article.",
             "I would be happy to share a brief brand profile, photographs",
             "Thank you for your time and consideration. Looking forward to hearing from you.",
@@ -187,7 +189,8 @@ class TestPipelines(unittest.TestCase):
                "Publication": "dailyexcelsior.com", "Contact Name": "Editorial Team (not verified)",
                "Draft Email": 'Hi Editorial Team,\n\nI came across "Smartworks to invest Rs 600cr in FY27" on dailyexcelsior.com:\n'}
         new = OutreachDraftGenerator().refresh_existing(row)
-        self.assertIn('"Smartworks to invest Rs 600cr in FY27" (https://www.dailyexcelsior.com/smartworks-to-invest)', new["Draft Email"])
+        self.assertIn('"Smartworks to invest Rs 600cr in FY27"', new["Draft Email"])
+        self.assertIn("Article link: https://www.dailyexcelsior.com/smartworks-to-invest\n", new["Draft Email"])
         self.assertTrue(new["Draft Email"].startswith("Dear Editor,"))
         self.assertIsNone(OutreachDraftGenerator().refresh_existing({"ID": "OUT-0000000000", "Target URL": url}))
 
@@ -211,9 +214,48 @@ class TestPipelines(unittest.TestCase):
         rows = {r["ID"]: r for r in read(os.path.join(cache, "outreach.csv"))}
         self.assertIn(rid, rows)
         self.assertTrue(rows[rid]["Draft Email"].startswith("Dear Editor,"))
-        self.assertIn('"Old ET story" (https://economictimes.indiatimes.com/old-story)', rows[rid]["Draft Email"])
+        self.assertIn('"Old ET story"', rows[rid]["Draft Email"])
+        self.assertIn("Article link: https://economictimes.indiatimes.com/old-story\n", rows[rid]["Draft Email"])
         self.assertEqual(rows[rid]["Approval Status"], "Approved")
         self.assertEqual(rows[rid]["Team Notes"], "keep me")
+
+    def test_no_link_has_punctuation_attached(self):
+        import csv, re
+        from src.reporting.outreach_generator import OutreachDraftGenerator, ANGLES
+        with open(os.path.join(BASE_DIR, "data", "ia-spaces-nap-master.csv"), encoding="utf-8-sig") as fh:
+            hubs = list(csv.DictReader(fh))
+        gen = OutreachDraftGenerator(hubs=hubs, sender={"name": "A B", "email": "a@b.co"})
+        for angle in ANGLES:
+            for title in ("Best coworking in Surat", "Coworking in Gurgaon and Noida", "India office leasing rises"):
+                body = gen.generate_draft(publication="x.in", target_url="https://x.in/a?b=1", angle=angle,
+                                          page_title=title, brand="India Accelerator")["draft_email"]
+                for m in re.finditer(r"https?://\S+", body):
+                    url = m.group(0)
+                    self.assertNotRegex(url, r"[.,;:!?)\]'\"]$", f"punctuation attached to {url}")
+                    self.assertFalse(body[m.start() - 1] in "(\"'", f"bracket before {url}")
+
+    def test_sheet_cells_get_clickable_links(self):
+        from src.sheets.sheets_client import GoogleSheetsClient as SheetsClient
+        text = "Article link: https://x.in/a\n\n- MG Road: https://iaspaces.co/gurgaon/mg-road/\nThanks"
+        runs = SheetsClient.link_runs(text)
+        links = [r["format"]["link"]["uri"] for r in runs if "link" in r["format"]]
+        self.assertEqual(links, ["https://x.in/a", "https://iaspaces.co/gurgaon/mg-road/"])
+        starts = [r["startIndex"] for r in runs]
+        self.assertEqual(starts, sorted(starts))
+        self.assertEqual(text[runs[1]["startIndex"]:runs[2]["startIndex"]], "https://x.in/a")
+
+        class FakeBook:
+            def __init__(self): self.calls = []
+            def batch_update(self, body): self.calls.append(body)
+        class FakeWs:
+            id = 7
+            def __init__(self): self.spreadsheet = FakeBook()
+        ws = FakeWs()
+        SheetsClient._apply_links(object.__new__(SheetsClient), ws, [["ID", "Draft Email"], ["OUT-1", text], ["OUT-2", "no link"]])
+        reqs = ws.spreadsheet.calls[0]["requests"]
+        self.assertEqual(len(reqs), 1)
+        self.assertEqual(reqs[0]["updateCells"]["range"]["sheetId"], 7)
+        self.assertEqual(reqs[0]["updateCells"]["range"]["startColumnIndex"], 1)
 
     def test_hub_file_matches_the_website_sitemap(self):
         import csv

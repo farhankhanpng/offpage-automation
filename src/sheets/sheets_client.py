@@ -19,6 +19,7 @@ Never exposes credentials in logs or exceptions.
 """
 
 import csv
+import re
 import os
 import time
 from typing import Any, Dict, Iterable, List, Optional, Set
@@ -78,6 +79,9 @@ HUMAN_DEFAULTS = {"Approval Status": "Pending Approval"}
 
 # Tabs keyed by a metric name: merged by key, never pruned, no human columns.
 SNAPSHOT_TABS = {"Dashboard"}
+
+
+URL_RE = re.compile(r"https?://[^\s<>\"()]+")
 
 
 def _snake(header: str) -> str:
@@ -276,9 +280,53 @@ class GoogleSheetsClient:
         except Exception as e:
             logger.warning(f"Could not resize '{tab_name}': {e.__class__.__name__}")
         _with_retry(ws.update, values=data, range_name="A1")
+        try:
+            self._apply_links(ws, data)
+        except Exception as e:  # links are a convenience; never fail the sync over them
+            logger.warning(f"Could not make links clickable in '{tab_name}': {e.__class__.__name__}")
         if previous_rows > len(data):
             last_col = _col_letter(max(need_cols, getattr(ws, "col_count", need_cols)))
             _with_retry(ws.batch_clear, [f"A{len(data) + 1}:{last_col}{previous_rows}"])
+
+    @staticmethod
+    def link_runs(text: str) -> List[Dict[str, Any]]:
+        """Rich-text runs that turn every URL in the text into a clickable link.
+        Indexes are in UTF-16 code units, as the Sheets API expects."""
+        runs: List[Dict[str, Any]] = []
+        def u16(i: int) -> int:
+            return len(text[:i].encode("utf-16-le")) // 2
+        for m in URL_RE.finditer(text or ""):
+            url = m.group(0).rstrip(".,;:!?'\")]")
+            start, end = m.start(), m.start() + len(url)
+            if not runs and start > 0:
+                runs.append({"startIndex": 0, "format": {}})
+            runs.append({"startIndex": u16(start), "format": {"link": {"uri": url}}})
+            if end < len(text):
+                runs.append({"startIndex": u16(end), "format": {}})
+        return runs
+
+    def _apply_links(self, ws, data: List[List[str]]):
+        """Make every URL in the tab clickable, including several links inside one cell
+        (for example the article and hub links in a draft email)."""
+        sheet_id = getattr(ws, "id", None)
+        spreadsheet = getattr(ws, "spreadsheet", None)
+        if sheet_id is None or spreadsheet is None:
+            return
+        requests = []
+        for r, row in enumerate(data[1:], start=1):
+            for c, text in enumerate(row):
+                runs = self.link_runs(text or "")
+                if not runs:
+                    continue
+                requests.append({"updateCells": {
+                    "range": {"sheetId": sheet_id, "startRowIndex": r, "endRowIndex": r + 1,
+                              "startColumnIndex": c, "endColumnIndex": c + 1},
+                    "rows": [{"values": [{"userEnteredValue": {"stringValue": text},
+                                          "textFormatRuns": runs}]}],
+                    "fields": "userEnteredValue,textFormatRuns",
+                }})
+        for i in range(0, len(requests), 200):
+            _with_retry(spreadsheet.batch_update, {"requests": requests[i:i + 200]})
 
     # ------------------------------------------------------------------ sync
     def _record_to_row(self, tab_name: str, rec: Dict[str, Any]) -> Dict[str, str]:

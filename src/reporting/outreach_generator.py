@@ -135,7 +135,7 @@ class OutreachDraftGenerator:
             else:
                 where = f"In {city} alone" if len(with_hubs) == 1 else f"In {city}"
                 lead = f"{where}, IA Spaces operates {NUMBER_WORDS.get(n, str(n))} hubs across prominent business locations:"
-            lines = "\n".join(f"- {hub_label(h)} ({h.get('Website', '').strip()})" for h in hubs)
+            lines = "\n".join(f"- {hub_label(h)}: {h.get('Website', '').strip()}" for h in hubs)
             parts.append(f"{lead}\n\n{lines}")
         return ("\n\n".join(parts) + "\n\n") if parts else ""
 
@@ -186,7 +186,7 @@ class OutreachDraftGenerator:
         f = self.facts
         domain = extract_domain(target_url) or publication
         title = (page_title or "").strip()
-        article = f'"{title}" ({target_url})' if title else f"({target_url})"
+        article = f'"{title}"' if title else "on your website"
         quoted = f'"{title}"' if title else "your recent article"
         cities = self._cities_in(f"{title} {evidence}")
         greeting = self._greeting(contact_name)
@@ -202,7 +202,7 @@ class OutreachDraftGenerator:
             opening = (f"I recently came across your article, {article}, and wanted to thank you for "
                        f"mentioning {named}.")
             ask = (f"We would appreciate it if you could consider mentioning IA Spaces by name in your "
-                   f"article and linking it to {target}. {offer}")
+                   f"article and linking it to this page:\n{target}\n\n{offer}")
         elif angle == "Listicle Inclusion":
             subject = f"Request to feature IA Spaces in {quoted}"
             opening = (f"I recently came across your article, {article}, and wanted to introduce "
@@ -219,6 +219,7 @@ class OutreachDraftGenerator:
             f"{greeting}\n\n"
             f"I hope you are doing well.\n\n"
             f"{opening}\n\n"
+            f"Article link: {target_url}\n\n"
             f"{self._about()}\n\n"
             f"{self._city_block(cities)}"
             f"{ask}\n\n"
