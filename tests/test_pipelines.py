@@ -62,6 +62,11 @@ def read(path):
         return list(csv.DictReader(f))
 
 
+def now_seen():
+    from src.utils.time_utils import now_ist_str
+    return now_ist_str()
+
+
 class TestPipelines(unittest.TestCase):
 
     def setUp(self):
@@ -132,35 +137,91 @@ class TestPipelines(unittest.TestCase):
         self.assertEqual(len(drafts), 1)
         body = drafts[0]["draft_email"]
         self.assertTrue(drafts[0]["proposed_subject"].startswith("Thank you for featuring IA Spaces"))
-        self.assertIn("thank you for mentioning India Accelerator", body)
-        self.assertIn("mentioning IA Spaces by name in the article and linking it to", body)
-        self.assertIn("Hi Editor,", body)
-        self.assertNotIn("completely understand", body)
+        self.assertIn("wanted to thank you for mentioning India Accelerator.", body)
+        self.assertIn("mentioning IA Spaces by name in your article and linking it to", body)
+        self.assertIn(f"({url})", body)
+        self.assertTrue(body.startswith("Dear Editor,"))
 
-    def test_listicle_draft_follows_the_approved_template(self):
+    def test_listicle_draft_follows_the_reference_email(self):
+        import csv
         from src.reporting.outreach_generator import OutreachDraftGenerator
-        hubs = [{"Business Name": "IA Spaces - MG Road, Gurugram", "City": "Gurugram",
-                 "Address Line 2": "Sector 28", "Website": "https://iaspaces.co/gurgaon/mg-road/"},
-                {"Business Name": "IA Spaces - Imperia, Gurugram", "City": "Gurugram",
-                 "Address Line 2": "Sector 62", "Website": "https://iaspaces.co/gurgaon/imperia/"}]
-        d = OutreachDraftGenerator(hubs=hubs, sender={"name": "Ishmeet Khanna", "title": "Marketing Manager", "phone": "+91-9643149801"}).generate_draft(
-            publication="x.in", target_url="https://x.in/best-coworking-gurgaon", angle="Listicle Inclusion",
-            page_title="Best Coworking Spaces in Gurgaon")
+        with open(os.path.join(BASE_DIR, "data", "ia-spaces-nap-master.csv"), encoding="utf-8-sig") as fh:
+            hubs = list(csv.DictReader(fh))
+        url = "https://www.nobroker.in/blog/best-coworking-space-in-gurgaon"
+        d = OutreachDraftGenerator(
+            brand_facts={"hubs": "40+", "cities": "25+"}, hubs=hubs,
+            sender={"name": "Ishmeet Khanna", "title": "Marketing Manager", "phone": "+91 96431 49801",
+                    "email": "ishmeet.khanna@indiaaccelerator.co"},
+        ).generate_draft(publication="nobroker.in", target_url=url, angle="Listicle Inclusion",
+                         page_title="The Top 10 Best Coworking Spaces in Gurgaon")
         body = d["draft_email"]
-        order = ["Hi Editor,", "I hope you are doing well.", "I'm Ishmeet, Marketing Manager at IA Spaces",
-                 'I came across your article, "Best Coworking Spaces in Gurgaon"', "featuring IA Spaces in the list",
-                 "\nhttps://x.in/best-coworking-gurgaon\n",
-                 "IA Spaces offers flexible coworking", "Here are our Gurugram locations for reference:",
-                 "- IA Spaces MG Road: https://iaspaces.co/gurgaon/mg-road/",
-                 "We would appreciate it if you could consider including IA Spaces in the article.",
-                 "I'd also be happy to connect over a quick call", "Looking forward to hearing from you.",
-                 "Warm regards,\nIshmeet Khanna\nMarketing Manager | IA Spaces\nhttps://iaspaces.co | +91-9643149801"]
+        order = [
+            "Dear Editor,", "I hope you are doing well.",
+            f'I recently came across your article, "The Top 10 Best Coworking Spaces in Gurgaon" ({url}), '
+            "and wanted to introduce IA Spaces for your consideration.",
+            "IA Spaces is the coworking and managed-office network of India Accelerator",
+            "With 40+ hubs across 25+ cities",
+            "Unlike conventional coworking spaces",
+            "In Gurugram alone, IA Spaces operates six hubs across prominent business locations:",
+            "- MG Road (https://iaspaces.co/gurgaon/mg-road/)",
+            "- Imperia, Golf Course Extension Road (https://iaspaces.co/gurgaon/imperia/)",
+            "- Vatika Triangle, MG Road (https://iaspaces.co/gurgaon/vatika-triangle/)",
+            "- Udyog Vihar, Phase 4 (https://iaspaces.co/gurgaon/udyog-vihar/)",
+            "- BPTP Centra One, Golf Course Extension Road (https://iaspaces.co/gurgaon/bptp-centra-one/)",
+            "- Cyber Green, DLF Phase 3 (https://iaspaces.co/gurgaon/cyber-green/)",
+            "We would appreciate it if you could consider including IA Spaces in your article.",
+            "I would be happy to share a brief brand profile, photographs",
+            "Thank you for your time and consideration. Looking forward to hearing from you.",
+            "Warm regards,\n\nIshmeet Khanna\nMarketing Manager | IA Spaces\n\nMobile: +91 96431 49801\n"
+            "Email: ishmeet.khanna@indiaaccelerator.co\nWebsite: https://iaspaces.co",
+        ]
         pos = [body.index(x) for x in order]
         self.assertEqual(pos, sorted(pos))
-        self.assertNotIn("Dedicated desks", body)
-        self.assertNotIn("info@iaspaces.co", body)
-        self.assertNotIn("The Coworking & Managed Office Network", body)
-        self.assertIn("- IA Spaces Imperia: https://iaspaces.co/gurgaon/imperia/", body)
+        self.assertNotIn("Mumbai", body.split("Unlike conventional")[1])
+
+    def test_older_drafts_are_rewritten_on_the_current_template(self):
+        from src.reporting.outreach_generator import OutreachDraftGenerator
+        from src.utils.url_utils import generate_stable_id
+        url = "https://www.dailyexcelsior.com/smartworks-to-invest"
+        row = {"ID": generate_stable_id(f"{url}::Industry Commentary", prefix="OUT"), "Target URL": url,
+               "Publication": "dailyexcelsior.com", "Contact Name": "Editorial Team (not verified)",
+               "Draft Email": 'Hi Editorial Team,\n\nI came across "Smartworks to invest Rs 600cr in FY27" on dailyexcelsior.com:\n'}
+        new = OutreachDraftGenerator().refresh_existing(row)
+        self.assertIn('"Smartworks to invest Rs 600cr in FY27" (https://www.dailyexcelsior.com/smartworks-to-invest)', new["Draft Email"])
+        self.assertTrue(new["Draft Email"].startswith("Dear Editor,"))
+        self.assertIsNone(OutreachDraftGenerator().refresh_existing({"ID": "OUT-0000000000", "Target URL": url}))
+
+    def test_daily_run_rewrites_old_drafts_in_the_sheet_and_keeps_approval(self):
+        import csv
+        from src.utils.url_utils import generate_stable_id
+        from src.sheets.sheets_client import SHEET_HEADERS
+        url = "https://economictimes.indiatimes.com/old-story"
+        rid = generate_stable_id(f"{url}::Industry Commentary", prefix="OUT")
+        cache = os.path.join(self.base, "data", "sheets_offline_cache")
+        os.makedirs(cache, exist_ok=True)
+        headers = SHEET_HEADERS["Outreach"]
+        row = {h: "" for h in headers}
+        row.update({"ID": rid, "Publication": "economictimes.indiatimes.com", "Target URL": url,
+                    "Contact Name": "Editorial Team (not verified)", "Proposed Subject": "old",
+                    "Draft Email": 'Hi Editorial Team,\n\nI came across "Old ET story" on economictimes.indiatimes.com:',
+                    "Approval Status": "Approved", "Team Notes": "keep me", "Last Seen": now_seen()})
+        with open(os.path.join(cache, "outreach.csv"), "w", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, fieldnames=headers); w.writeheader(); w.writerow(row)
+        run_daily_pipeline(base_dir=self.base, use_feeds=False, fetcher=PageFetcher({}))
+        rows = {r["ID"]: r for r in read(os.path.join(cache, "outreach.csv"))}
+        self.assertIn(rid, rows)
+        self.assertTrue(rows[rid]["Draft Email"].startswith("Dear Editor,"))
+        self.assertIn('"Old ET story" (https://economictimes.indiatimes.com/old-story)', rows[rid]["Draft Email"])
+        self.assertEqual(rows[rid]["Approval Status"], "Approved")
+        self.assertEqual(rows[rid]["Team Notes"], "keep me")
+
+    def test_hub_file_matches_the_website_sitemap(self):
+        import csv
+        with open(os.path.join(BASE_DIR, "data", "ia-spaces-nap-master.csv"), encoding="utf-8-sig") as fh:
+            hubs = list(csv.DictReader(fh))
+        self.assertEqual(len(hubs), 40)
+        self.assertEqual(len({h["City"] for h in hubs}), 25)
+        self.assertEqual(len({h["Website"] for h in hubs}), 40)
 
     def test_only_the_article_city_centres_are_listed(self):
         import csv

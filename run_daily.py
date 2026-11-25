@@ -185,7 +185,8 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
     s.sync_tab("Brand_Mentions", mentions)
     s.sync_tab("Competitors", competitor_rows)
     s.sync_tab("Backlinks", backlinks)
-    s.sync_tab("Outreach", draft_list)
+    # Older drafts not found again today are rewritten on the current template too
+    s.sync_tab("Outreach", draft_list, refresh_fn=outreach.refresh_existing)
 
     s.sync_tab("Dashboard", ctx.dashboard({
         "Total Opportunities Discovered": len(opportunities),

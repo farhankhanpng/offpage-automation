@@ -308,8 +308,13 @@ class GoogleSheetsClient:
             return True
         return self.retention_days > 0 and (now_ist() - seen).days > self.retention_days
 
-    def sync_tab(self, tab_name: str, records: List[Dict[str, Any]], key_field: str = "ID") -> int:
-        """Merge records into the tab (cache + Sheet). Returns the number of rows kept."""
+    def sync_tab(self, tab_name: str, records: List[Dict[str, Any]], key_field: str = "ID",
+                 refresh_fn=None) -> int:
+        """Merge records into the tab (cache + Sheet). Returns the number of rows kept.
+
+        refresh_fn(row) may return updated machine columns for rows this run did not
+        produce (used to rewrite older outreach drafts on the current template). It never
+        changes human columns or "Last Seen"."""
         if tab_name not in SHEET_HEADERS:
             logger.error(f"Unknown tab name: {tab_name}")
             return 0
@@ -352,6 +357,20 @@ class GoogleSheetsClient:
                 kept = (existing or {}).get(col, "").strip()
                 new_row[col] = kept or new_row.get(col, "").strip() or HUMAN_DEFAULTS.get(col, "")
             rows[k] = new_row
+
+        if refresh_fn is not None:
+            produced = {self._record_to_row(tab_name, rec).get(key_field, "").strip() for rec in records}
+            for k, row in rows.items():
+                if k in produced or k in tombstones:
+                    continue
+                try:
+                    updates = refresh_fn(row) or {}
+                except Exception as e:  # a bad old row must never break the sync
+                    logger.warning(f"Could not refresh row {k} in '{tab_name}': {e.__class__.__name__}")
+                    continue
+                for col, val in updates.items():
+                    if col in headers and col not in human_cols and col != "Last Seen":
+                        row[col] = val
 
         final_rows = [
             r for k, r in rows.items()
