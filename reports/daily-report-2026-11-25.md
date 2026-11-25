@@ -1,12 +1,12 @@
 # IA Spaces - Daily Off-Page SEO Report (2026-11-25)
-*Generated at: 2026-11-25 11:41:13 IST*
+*Generated at: 2026-11-25 13:04:59 IST*
 
 ## Run Health
 - **Status:** Degraded
-- **Checks:** rss feed: 3/4 ok; gdelt query: 1/4 ok; candidate page: 5/5 ok; mention check: 5/6 ok; backlink check: 0/2 ok
+- **Checks:** rss feed: 3/4 ok; gdelt query: 0/4 ok; candidate page: 5/5 ok; mention check: 4/6 ok; backlink check: 0/2 ok
 - **Google Sheets:** Connected
 
-<details><summary>Failed checks (7)</summary>
+<details><summary>Failed checks (9)</summary>
 
 | Check | URL / query | Reason |
 |---|---|---|
@@ -14,7 +14,9 @@
 | gdelt query | coworking India | GDELT request failed |
 | gdelt query | managed office India | GDELT request failed |
 | gdelt query | flexible workspace India | GDELT request failed |
+| gdelt query | "India Accelerator" | GDELT request failed |
 | mention check | https://www.rprealtyplus.com/news-views/india-accelerator-acquires-mysoho-to-expand-start-... | HTTP Error 403 |
+| mention check | https://propnewstime.com/latestnewsstories/MjE5MTA=/india-accelerator-opens-new-co-working... | HTTP Error 404 |
 | backlink check | https://www.indiaaccelerator.co/ | HTTP Error 429 |
 | backlink check | https://www.indiaaccelerator.co/ia-spaces | HTTP Error 429 |
 
@@ -25,9 +27,9 @@
 ## Summary
 - **Candidates checked:** 5 (5 pages fetched)
 - **High/Medium opportunities:** 5
-- **Brand mentions found:** 11 (11 with no link to iaspaces.co)
+- **Brand mentions found:** 9 (9 with no link to iaspaces.co)
 - **Backlink sources:** 2 (0 live, 0 missing, 2 could not be verified)
-- **Outreach drafts created:** 9 (all *Pending Approval* - nothing is sent)
+- **Outreach drafts created:** 8 (all *Pending Approval* - nothing is sent)
 
 ## 1. Top Opportunities
 | ID | Publication | Page | Score | Priority | Breakdown |
@@ -50,8 +52,6 @@
 | MySOHO | [India Accelerator's Pioneering MySOHO Acquisition: A New Era for Co-Wo...](https://www.devdiscourse.com/article/business/3636320-india-accelerators-pioneering-mysoho-acquisition-a-new-era-for-co-working-spaces) | **No** |
 | India Accelerator | [Discuss TWIC stories, links and trends. - ThisWeekInCoworking.com](https://thisweekincoworking.com/discuss/item/mxxew) | **No** |
 | MySOHO | [Discuss TWIC stories, links and trends. - ThisWeekInCoworking.com](https://thisweekincoworking.com/discuss/item/mxxew) | **No** |
-| India Accelerator | [India Accelerator opens new co-working centre in Surat](https://propnewstime.com/latestnewsstories/MjE5MTA=/india-accelerator-opens-new-co-working-centre-in-surat) | **No** |
-| MySOHO | [India Accelerator opens new co-working centre in Surat](https://propnewstime.com/latestnewsstories/MjE5MTA=/india-accelerator-opens-new-co-working-centre-in-surat) | **No** |
 
 ## 3. Backlink Verification
 | Source URL | Status | Anchor | Rel | Notes |
@@ -70,6 +70,5 @@
 | `OUT-A9B3B4D0B6` | outlookbusiness.com | Thank you for featuring IA Spaces in "India Accelerator Acquires Co-Working Operator MySOHO to Support Startups – Outlook Business" | Unverified (requires manual lookup) | [page](https://www.outlookbusiness.com/corporate/india-accelerator-acquires-co-working-operator-mysoho-to-support-startups) |
 | `OUT-82D6107151` | devdiscourse.com | Thank you for featuring IA Spaces in "India Accelerator's Pioneering MySOHO Acquisition: A New Era for Co-Working Spaces \| Business" | Unverified (requires manual lookup) | [page](https://www.devdiscourse.com/article/business/3636320-india-accelerators-pioneering-mysoho-acquisition-a-new-era-for-co-working-spaces) |
 | `OUT-CA07C2624B` | thisweekincoworking.com | Thank you for featuring IA Spaces in "Discuss TWIC stories, links and trends. - ThisWeekInCoworking.com" | Unverified (requires manual lookup) | [page](https://thisweekincoworking.com/discuss/item/mxxew) |
-| `OUT-56DF12672E` | propnewstime.com | Thank you for featuring IA Spaces in "India Accelerator opens new co-working centre in Surat" | info@propnewstime.com | [page](https://propnewstime.com/latestnewsstories/MjE5MTA=/india-accelerator-opens-new-co-working-centre-in-surat) |
 
 > Before approving: open the page, check the contact, and confirm every figure in the draft.
