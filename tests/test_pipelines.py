@@ -143,20 +143,43 @@ class TestPipelines(unittest.TestCase):
                  "Address Line 2": "Sector 28", "Website": "https://iaspaces.co/gurgaon/mg-road/"},
                 {"Business Name": "IA Spaces - Imperia, Gurugram", "City": "Gurugram",
                  "Address Line 2": "Sector 62", "Website": "https://iaspaces.co/gurgaon/imperia/"}]
-        d = OutreachDraftGenerator(hubs=hubs, sender={"name": "Ishmeet", "title": "Marketing Manager"}).generate_draft(
+        d = OutreachDraftGenerator(hubs=hubs, sender={"name": "Ishmeet Khanna", "title": "Marketing Manager", "phone": "+91-9643149801"}).generate_draft(
             publication="x.in", target_url="https://x.in/best-coworking-gurgaon", angle="Listicle Inclusion",
             page_title="Best Coworking Spaces in Gurgaon")
         body = d["draft_email"]
         order = ["Hi Editor,", "I hope you are doing well.", "I'm Ishmeet, Marketing Manager at IA Spaces",
                  'I came across your article, "Best Coworking Spaces in Gurgaon"', "featuring IA Spaces in the list",
-                 "IA Spaces offers flexible coworking", "Here are a few of our Gurugram locations for reference:",
+                 "\nhttps://x.in/best-coworking-gurgaon\n",
+                 "IA Spaces offers flexible coworking", "Here are our Gurugram locations for reference:",
                  "- IA Spaces MG Road: https://iaspaces.co/gurgaon/mg-road/",
                  "We would appreciate it if you could consider including IA Spaces in the article.",
                  "I'd also be happy to connect over a quick call", "Looking forward to hearing from you.",
-                 "Warm regards,\nIshmeet\nMarketing Manager | IA Spaces\nThe Coworking & Managed Office Network of India Accelerator"]
+                 "Warm regards,\nIshmeet Khanna\nMarketing Manager | IA Spaces\nhttps://iaspaces.co | +91-9643149801"]
         pos = [body.index(x) for x in order]
         self.assertEqual(pos, sorted(pos))
         self.assertNotIn("Dedicated desks", body)
+        self.assertNotIn("info@iaspaces.co", body)
+        self.assertNotIn("The Coworking & Managed Office Network", body)
+        self.assertIn("- IA Spaces Imperia: https://iaspaces.co/gurgaon/imperia/", body)
+
+    def test_only_the_article_city_centres_are_listed(self):
+        import csv
+        from src.reporting.outreach_generator import OutreachDraftGenerator
+        with open(os.path.join(BASE_DIR, "data", "ia-spaces-nap-master.csv"), encoding="utf-8-sig") as fh:
+            hubs = list(csv.DictReader(fh))
+        gen = OutreachDraftGenerator(hubs=hubs)
+        d = gen.generate_draft(publication="x.in", target_url="https://x.in/a", angle="Listicle Inclusion",
+                               page_title="Best Coworking Spaces in Gurgaon")
+        for h in hubs:
+            if h["City"] == "Gurugram":
+                self.assertIn(h["Website"], d["draft_email"])
+            else:
+                self.assertNotIn(h["Website"], d["draft_email"])
+        self.assertNotIn("other cities", d["draft_email"])
+        none = gen.generate_draft(publication="x.in", target_url="https://x.in/b", angle="Industry Commentary",
+                                  page_title="India office leasing rises 7 pc")
+        self.assertNotIn("location", none["draft_email"].split("We would appreciate")[0].split("coverage.")[-1])
+        self.assertNotIn("https://iaspaces.co/", none["draft_email"].replace("https://iaspaces.co |", ""))
 
     def test_daily_news_roundups_get_no_draft(self):
         from run_daily import is_digest_page

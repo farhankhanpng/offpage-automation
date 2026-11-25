@@ -34,7 +34,7 @@ DEFAULT_FACTS = {
     "spokesperson_title": "Founder & CEO, India Accelerator",
 }
 
-DEFAULT_SENDER = {"name": "", "title": "", "email": "info@iaspaces.co"}
+DEFAULT_SENDER = {"name": "", "title": "", "email": "", "phone": ""}
 
 # Spellings used in articles -> the city name used in the hub file
 CITY_ALIASES = {
@@ -101,15 +101,14 @@ class OutreachDraftGenerator:
     def _signature(self) -> str:
         f, s = self.facts, self.sender
         contact = [f["website"]]
-        if s["email"]:
+        if s.get("email"):
             contact.append(s["email"])
-        if f.get("phone"):
-            contact.append(f["phone"])
+        if s.get("phone"):
+            contact.append(s["phone"])
         return "\n".join([
             "Warm regards,",
             s["name"] or "XXX",
             f"{s['title'] or 'Marketing Manager'} | IA Spaces",
-            f"The Coworking & Managed Office Network of {f['parent']}",
             " | ".join(contact),
         ])
 
@@ -124,13 +123,26 @@ class OutreachDraftGenerator:
         """The article's city first, then the main cities (as in the approved template)."""
         preferred = ["Gurugram", "Mumbai", "Pune", "Ahmedabad", "Chandigarh", "Noida"]
         known = {h["City"] for h in self.hubs} or set(preferred)
-        order = [first] + [c for c in preferred if c != first]
+        order = ([first] if first else []) + [c for c in preferred if c != first]
         cities = [c for c in order if c in known][:6]
         return ", ".join(cities)
 
-    def _hub_list(self, city: str, limit: int = 4) -> str:
+    def _article_city_block(self, cities: List[str]) -> str:
+        """Every centre in the city (or cities) the article is about, and no other city.
+        An article that names none of our cities gets no hub list."""
+        parts = []
+        for city in cities:
+            hubs = self._hubs_in(city)
+            if not hubs:
+                continue
+            lead = (f"Here are our {city} locations for reference:" if len(hubs) > 1
+                    else f"Here is our {city} location for reference:")
+            parts.append(f"{lead}\n\n{self._hub_list(city)}")
+        return ("\n\n".join(parts) + "\n\n") if parts else ""
+
+    def _hub_list(self, city: str, limit: Optional[int] = None) -> str:
         return "\n".join(f"- IA Spaces {_hub_short_name(h['Business Name'])}: {h.get('Website', '').strip()}"
-                          for h in self._hubs_in(city)[:limit])
+                          for h in (self._hubs_in(city) if limit is None else self._hubs_in(city)[:limit]))
 
     def _intro(self) -> str:
         s = self.sender
@@ -207,20 +219,16 @@ class OutreachDraftGenerator:
         cities = self._cities_in(f"{title} {evidence}")
         signature = self._signature()
 
-        name = self.sender["name"] or "XXX"
+        name = (self.sender["name"] or "XXX").split()[0]
         title_s = self.sender["title"] or "Marketing Manager"
         intro = (f"I'm {name}, {title_s} at IA Spaces, the coworking and managed office network "
                  f"of {f['parent']}.")
-        city = cities[0] if cities else "Gurugram"
+        city = cities[0] if cities else ""
         offers = (f"IA Spaces offers flexible coworking and managed office solutions across multiple "
                   f"cities, including {self._city_sample(city)} and others. With a growing network of "
                   f"workspaces backed by the {f['parent']} ecosystem, we believe IA Spaces would be a "
                   f"relevant addition to your coverage.")
-        hubs = self._hub_list(city)
-        n_hubs = len(self._hubs_in(city))
-        lead = (f"Here are a few of our {city} locations for reference:" if n_hubs > 1
-                else f"Here is our {city} location for reference:")
-        hubs_block = (f"{lead}\n\n{hubs}\n\n" if hubs else "")
+        hubs_block = self._article_city_block(cities)
         call = ("I'd also be happy to connect over a quick call to introduce the brand and explore "
                 "potential editorial collaborations and other opportunities to work together.")
         closing = "Looking forward to hearing from you."
@@ -253,7 +261,7 @@ class OutreachDraftGenerator:
             f"{greeting}\n\n"
             f"I hope you are doing well.\n\n"
             f"{intro}\n\n"
-            f"{reach}\n\n"
+            f"{reach}\n{target_url}\n\n"
             f"{offers}\n\n"
             f"{hubs_block}"
             f"{ask}\n\n"
