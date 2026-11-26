@@ -186,3 +186,10 @@ Timestamp,Action,Status,Details
 2026-11-26 10:10:41,SYNC,SUCCESS,Synced 15 records to tab 'Outreach'
 2026-11-26 10:10:41,SYNC,SUCCESS,Synced 14 records to tab 'Dashboard'
 2026-11-26 10:10:41,DAILY_RUN,DEGRADED,rss feed: 3/4 ok; gdelt query: 1/4 ok; candidate page: 5/5 ok; mention check: 5/6 ok; backlink check: 0/2 ok
+2026-11-26 11:40:55,SYNC,SUCCESS,Synced 29 records to tab 'Opportunities'
+2026-11-26 11:40:56,SYNC,SUCCESS,Synced 12 records to tab 'Brand_Mentions'
+2026-11-26 11:40:57,SYNC,SUCCESS,Synced 15 records to tab 'Competitors'
+2026-11-26 11:40:59,SYNC,SUCCESS,Synced 2 records to tab 'Backlinks'
+2026-11-26 11:41:00,SYNC,SUCCESS,Synced 15 records to tab 'Outreach'
+2026-11-26 11:41:01,SYNC,SUCCESS,Synced 14 records to tab 'Dashboard'
+2026-11-26 11:41:01,DAILY_RUN,DEGRADED,rss feed: 3/4 ok; gdelt query: 0/4 ok; candidate page: 5/5 ok; mention check: 5/6 ok; backlink check: 0/2 ok

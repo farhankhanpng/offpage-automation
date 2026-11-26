@@ -1,12 +1,12 @@
 # IA Spaces - Daily Off-Page SEO Report (2026-11-26)
-*Generated at: 2026-11-26 10:10:41 IST*
+*Generated at: 2026-11-26 11:41:01 IST*
 
 ## Run Health
 - **Status:** Degraded
-- **Checks:** rss feed: 3/4 ok; gdelt query: 1/4 ok; candidate page: 5/5 ok; mention check: 5/6 ok; backlink check: 0/2 ok
+- **Checks:** rss feed: 3/4 ok; gdelt query: 0/4 ok; candidate page: 5/5 ok; mention check: 5/6 ok; backlink check: 0/2 ok
 - **Google Sheets:** Connected
 
-<details><summary>Failed checks (7)</summary>
+<details><summary>Failed checks (8)</summary>
 
 | Check | URL / query | Reason |
 |---|---|---|
@@ -14,6 +14,7 @@
 | gdelt query | coworking India | GDELT request failed |
 | gdelt query | managed office India | GDELT request failed |
 | gdelt query | flexible workspace India | GDELT request failed |
+| gdelt query | "India Accelerator" | GDELT request failed |
 | mention check | https://www.rprealtyplus.com/news-views/india-accelerator-acquires-mysoho-to-expand-start-... | HTTP Error 403 |
 | backlink check | https://www.indiaaccelerator.co/ | HTTP Error 429 |
 | backlink check | https://www.indiaaccelerator.co/ia-spaces | HTTP Error 429 |
@@ -65,10 +66,10 @@
 | `OUT-8D8C09529A` | nobroker.in | Request to feature IA Spaces in "The Top 10 Best Coworking Spaces in Gurgaon" | hello@nobroker.in | [page](https://www.nobroker.in/blog/best-coworking-space-in-gurgaon) |
 | `OUT-CCCB274A93` | thehosteller.com | Request to feature IA Spaces in "A guide to Gurgaon's thriving co-working spaces" | Unverified (requires manual lookup) | [page](https://www.thehosteller.com/blogs/gurgaon-co-working-spaces) |
 | `OUT-617038164D` | officekhojo.lovable.app | Request to feature IA Spaces in "10 Best Coworking Spaces In Gurgaon For 2026" | Unverified (requires manual lookup) | [page](https://officekhojo.lovable.app/blog/best-coworking-spaces-in-gurgaon-2026) |
-| `OUT-3541E52D66` | india.entrepreneur.com | Thank you for featuring IA Spaces in "India Accelerator Acquires MySOHO to Expand IA Spaces Nationwide" | Unverified (requires manual lookup) | [page](https://india.entrepreneur.com/news-and-trends/india-accelerator-acquires-mysoho-to-expand-ia-spaces/497405) |
-| `OUT-A9B3B4D0B6` | outlookbusiness.com | Thank you for featuring IA Spaces in "India Accelerator Acquires Co-Working Operator MySOHO to Support Startups – Outlook Business" | Unverified (requires manual lookup) | [page](https://www.outlookbusiness.com/corporate/india-accelerator-acquires-co-working-operator-mysoho-to-support-startups) |
-| `OUT-82D6107151` | devdiscourse.com | Thank you for featuring IA Spaces in "India Accelerator's Pioneering MySOHO Acquisition: A New Era for Co-Working Spaces \| Business" | Unverified (requires manual lookup) | [page](https://www.devdiscourse.com/article/business/3636320-india-accelerators-pioneering-mysoho-acquisition-a-new-era-for-co-working-spaces) |
-| `OUT-CA07C2624B` | thisweekincoworking.com | Thank you for featuring IA Spaces in "Discuss TWIC stories, links and trends. - ThisWeekInCoworking.com" | Unverified (requires manual lookup) | [page](https://thisweekincoworking.com/discuss/item/mxxew) |
-| `OUT-56DF12672E` | propnewstime.com | Thank you for featuring IA Spaces in "India Accelerator opens new co-working centre in Surat" | info@propnewstime.com | [page](https://propnewstime.com/latestnewsstories/MjE5MTA=/india-accelerator-opens-new-co-working-centre-in-surat) |
+| `OUT-3541E52D66` | india.entrepreneur.com | Thank you for mentioning IA Spaces in "India Accelerator Acquires MySOHO to Expand IA Spaces Nationwide" | Unverified (requires manual lookup) | [page](https://india.entrepreneur.com/news-and-trends/india-accelerator-acquires-mysoho-to-expand-ia-spaces/497405) |
+| `OUT-A9B3B4D0B6` | outlookbusiness.com | Thank you for mentioning India Accelerator in "India Accelerator Acquires Co-Working Operator MySOHO to Support Startups" | Unverified (requires manual lookup) | [page](https://www.outlookbusiness.com/corporate/india-accelerator-acquires-co-working-operator-mysoho-to-support-startups) |
+| `OUT-82D6107151` | devdiscourse.com | Thank you for mentioning India Accelerator in "India Accelerator's Pioneering MySOHO Acquisition: A New Era for Co-Working Spaces" | Unverified (requires manual lookup) | [page](https://www.devdiscourse.com/article/business/3636320-india-accelerators-pioneering-mysoho-acquisition-a-new-era-for-co-working-spaces) |
+| `OUT-CA07C2624B` | thisweekincoworking.com | Thank you for mentioning India Accelerator in "IA acquires MySOHO" | Unverified (requires manual lookup) | [page](https://thisweekincoworking.com/discuss/item/mxxew) |
+| `OUT-56DF12672E` | propnewstime.com | Thank you for mentioning India Accelerator in "India Accelerator opens new co-working centre in Surat" | info@propnewstime.com | [page](https://propnewstime.com/latestnewsstories/MjE5MTA=/india-accelerator-opens-new-co-working-centre-in-surat) |
 
 > Before approving: open the page, check the contact, and confirm every figure in the draft.
