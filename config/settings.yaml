@@ -2,7 +2,7 @@
 # Values here can be overridden from .env or the environment (see .env.example).
 app:
   name: "IA Spaces Off-Page SEO Engine"
-  version: "1.5.3"
+  version: "1.5.4"
   target_brand: "IA Spaces"
   target_website: "https://iaspaces.co"
   parent_brand: "India Accelerator"

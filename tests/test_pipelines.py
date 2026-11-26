@@ -307,6 +307,10 @@ class TestPipelines(unittest.TestCase):
         self.assertEqual(contact_for("https://www.thehosteller.com/blogs/x", "ed@th.com", known),
                          ("ed@th.com", "Published on the page"))
         self.assertEqual(contact_for("https://other.in/x", None, known), (None, None))
+        email, note = contact_for("https://www.nobroker.in/blog/x", "hello@nobroker.in", {},
+                                  {"hello@nobroker.in": "no-reply"})
+        self.assertIsNone(email)
+        self.assertIn("no-reply", note)
 
     def test_hub_file_matches_the_website_sitemap(self):
         import csv

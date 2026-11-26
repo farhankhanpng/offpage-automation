@@ -68,15 +68,29 @@ def load_known_contacts(ctx) -> Dict[str, Dict[str, str]]:
     return out
 
 
-def contact_for(url: str, page_contact, known: Dict[str, Dict[str, str]]):
-    """(email, source): an address published on the page wins, then the looked-up contact."""
+def load_blocked_contacts(ctx) -> Dict[str, str]:
+    """Addresses that must not be used (no-reply or non-editorial), from data/blocked_contacts.csv."""
+    return {(r.get("email") or "").strip().lower(): (r.get("reason") or "Do not use").strip()
+            for r in ctx.read_csv("data/blocked_contacts.csv") if "@" in (r.get("email") or "")}
+
+
+def contact_for(url: str, page_contact, known: Dict[str, Dict[str, str]], blocked=None):
+    """(email, source): an address published on the page wins, then the looked-up contact.
+    Blocked addresses are never used."""
+    blocked = blocked or {}
+    note = None
+    if page_contact and page_contact.strip().lower() in blocked:
+        note = f"{page_contact}: {blocked[page_contact.strip().lower()]}"
+        page_contact = None
     if page_contact:
         return page_contact, "Published on the page"
     dom = (extract_domain(url) or "").lower()
     if dom.startswith("www."):
         dom = dom[4:]
     hit = known.get(dom)
-    return (hit["email"], hit["source"]) if hit else (None, None)
+    if hit and hit["email"].lower() not in blocked:
+        return hit["email"], hit["source"]
+    return None, note
 
 
 def pick_unlinked(mentions: List[Dict[str, Any]]):
@@ -113,6 +127,9 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
     outreach = OutreachDraftGenerator(ctx.settings.get("brand_facts"), hubs=ctx.read_csv(nap_rel),
                                       sender=outreach_cfg.get("sender"))
     known_contacts = load_known_contacts(ctx)
+    blocked_contacts = load_blocked_contacts(ctx)
+    from src.sheets import sheets_client as _sc
+    _sc.BLOCKED_EMAILS.clear(); _sc.BLOCKED_EMAILS.update(blocked_contacts)
     discovery = DiscoveryEngine(ctx.settings, health=ctx.health,
                                 relevance_terms=list(brands) + [c["name"] for c in competitors])
 
@@ -169,7 +186,7 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
                 angle = outreach.angle_for(page_comps[0]["editorial_angle"])
             else:
                 angle = outreach.angle_for(CompetitorTracker.editorial_angle(title, body))
-            contact, source = contact_for(url, pick_contact(emails), known_contacts)
+            contact, source = contact_for(url, pick_contact(emails), known_contacts, blocked_contacts)
             draft = outreach.generate_draft(
                 publication=cand.get("domain", ""), target_url=url, angle=angle,
                 contact_email=contact, contact_source=source,
@@ -188,7 +205,7 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
         if unlinked:
             res = ctx.fetcher.fetch(url, source="mention check")
             contact, source = contact_for(url, pick_contact(find_contact_emails(res.get("html", ""), url)),
-                                          known_contacts)
+                                          known_contacts, blocked_contacts)
             draft = outreach.generate_draft(
                 publication=extract_domain(url), target_url=unlinked["mentioned_url"],
                 angle="Unlinked Brand Mention", contact_email=contact,
@@ -213,8 +230,13 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
     # Older drafts not found again today are rewritten on the current template too
     def refresh(row):
         updates = outreach.refresh_existing(row) or {}
-        if "@" not in (row.get("Contact Email") or ""):
-            email, source = contact_for(row.get("Target URL", ""), None, known_contacts)
+        current = (row.get("Contact Email") or "").strip().lower()
+        if current in blocked_contacts:
+            updates.update({"Contact Email": "Unverified (requires manual lookup)",
+                            "Contact Source": f"{row.get('Contact Email')}: {blocked_contacts[current]}"})
+            current = ""
+        if "@" not in current:
+            email, source = contact_for(row.get("Target URL", ""), None, known_contacts, blocked_contacts)
             if email:
                 updates.update({"Contact Email": email, "Contact Source": source})
         return updates

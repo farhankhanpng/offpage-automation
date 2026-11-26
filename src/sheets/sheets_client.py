@@ -80,10 +80,12 @@ TEAM_FILLABLE: Dict[str, List[str]] = {
     "Outreach": ["Contact Email", "Contact Name", "Contact Source"],
 }
 PLACEHOLDERS = {"", "unverified (requires manual lookup)", "editorial team (not verified)", "not found on page"}
+BLOCKED_EMAILS: set = set()  # filled by the runner from data/blocked_contacts.csv
 
 
 def _is_placeholder(value: str) -> bool:
-    return (value or "").strip().lower() in PLACEHOLDERS
+    v = (value or "").strip().lower()
+    return v in PLACEHOLDERS or v in BLOCKED_EMAILS
 HUMAN_DEFAULTS = {"Approval Status": "Pending Approval"}
 
 # Tabs keyed by a metric name: merged by key, never pruned, no human columns.
