@@ -136,7 +136,8 @@ class TestPipelines(unittest.TestCase):
         drafts = [d for d in result["drafts"] if d["target_url"] == url]
         self.assertEqual(len(drafts), 1)
         body = drafts[0]["draft_email"]
-        self.assertTrue(drafts[0]["proposed_subject"].startswith("Thank you for featuring IA Spaces"))
+        self.assertEqual(drafts[0]["proposed_subject"],
+                         "Thank you for mentioning India Accelerator in \"India Accelerator's MySOHO Acquisition: A New Era for Co-Working Spaces\"")
         self.assertIn("wanted to thank you for mentioning India Accelerator.", body)
         self.assertIn("mentioning IA Spaces by name in your article and linking it to", body)
         self.assertIn(f"Article link: {url}\n", body)
@@ -207,7 +208,7 @@ class TestPipelines(unittest.TestCase):
         row.update({"ID": rid, "Publication": "economictimes.indiatimes.com", "Target URL": url,
                     "Contact Name": "Editorial Team (not verified)", "Proposed Subject": "old",
                     "Draft Email": 'Hi Editorial Team,\n\nI came across "Old ET story" on economictimes.indiatimes.com:',
-                    "Approval Status": "Approved", "Team Notes": "keep me", "Last Seen": now_seen()})
+                    "Approval Status": "Pending Approval", "Team Notes": "keep me", "Last Seen": now_seen()})
         with open(os.path.join(cache, "outreach.csv"), "w", newline="", encoding="utf-8") as fh:
             w = csv.DictWriter(fh, fieldnames=headers); w.writeheader(); w.writerow(row)
         run_daily_pipeline(base_dir=self.base, use_feeds=False, fetcher=PageFetcher({}))
@@ -216,7 +217,7 @@ class TestPipelines(unittest.TestCase):
         self.assertTrue(rows[rid]["Draft Email"].startswith("Dear Editor,"))
         self.assertIn('"Old ET story"', rows[rid]["Draft Email"])
         self.assertIn("Article link: https://economictimes.indiatimes.com/old-story\n", rows[rid]["Draft Email"])
-        self.assertEqual(rows[rid]["Approval Status"], "Approved")
+        self.assertEqual(rows[rid]["Approval Status"], "Pending Approval")
         self.assertEqual(rows[rid]["Team Notes"], "keep me")
 
     def test_no_link_has_punctuation_attached(self):
@@ -256,6 +257,26 @@ class TestPipelines(unittest.TestCase):
         self.assertEqual(len(reqs), 1)
         self.assertEqual(reqs[0]["updateCells"]["range"]["sheetId"], 7)
         self.assertEqual(reqs[0]["updateCells"]["range"]["startColumnIndex"], 1)
+
+    def test_site_names_are_removed_from_titles(self):
+        from src.reporting.outreach_generator import OutreachDraftGenerator
+        gen = OutreachDraftGenerator()
+        d = gen.generate_draft(publication="outlookbusiness.com", target_url="https://www.outlookbusiness.com/a",
+                               angle="Unlinked Brand Mention", brand="India Accelerator",
+                               page_title="India Accelerator Acquires Co-Working Operator MySOHO to Support Startups \u2013 Outlook Business")
+        self.assertNotIn("Outlook Business", d["proposed_subject"])
+        t = gen.generate_draft(publication="thisweekincoworking.com", target_url="https://thisweekincoworking.com/discuss/item/mxxew",
+                               angle="Unlinked Brand Mention", brand="India Accelerator",
+                               page_title="Discuss TWIC stories, links and trends. - ThisWeekInCoworking.com")
+        self.assertIn('"IA acquires MySOHO"', t["proposed_subject"])
+
+    def test_approved_drafts_are_never_rewritten(self):
+        from src.reporting.outreach_generator import OutreachDraftGenerator
+        from src.utils.url_utils import generate_stable_id
+        url = "https://x.in/a"
+        row = {"ID": generate_stable_id(f"{url}::Industry Commentary", prefix="OUT"), "Target URL": url,
+               "Approval Status": "Approved", "Draft Email": "my own edited text"}
+        self.assertIsNone(OutreachDraftGenerator().refresh_existing(row))
 
     def test_hub_file_matches_the_website_sitemap(self):
         import csv

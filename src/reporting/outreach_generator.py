@@ -52,6 +52,27 @@ AREA_NORMALISE = [
 ]
 
 
+# Site names that pages append to their titles
+TITLE_SUFFIX_RE = re.compile(
+    r"\s*[|\u2013\u2014-]\s*(Outlook Business|Business|YourStory|Devdiscourse|ThisWeekInCoworking\.com|"
+    r"Daily Excelsior|The Economic Times|ET RealEstate|Mint|Livemint|Office Khojo|An Honest Comparison)\s*$",
+    re.IGNORECASE)
+# Pages whose <title> is only the site's own name: the real headline is not in the title
+GENERIC_TITLES = {"discuss twic stories, links and trends."}
+KNOWN_HEADLINES = {"thisweekincoworking.com/discuss/item/mxxew": "IA acquires MySOHO"}
+
+
+def clean_title(title: str, url: str = "") -> str:
+    """Headline without the site name ('X - Outlook Business' -> 'X')."""
+    t = (title or "").strip()
+    for _ in range(3):
+        new = TITLE_SUFFIX_RE.sub("", t).strip()
+        if new == t:
+            break
+        t = new
+    return t
+
+
 def _hub_short_name(business_name: str) -> str:
     """'IA Spaces - MG Road, Gurugram' -> 'MG Road'."""
     name = re.sub(r"^\s*IA Spaces\s*-\s*", "", business_name or "")
@@ -185,7 +206,10 @@ class OutreachDraftGenerator:
     ) -> Dict[str, Any]:
         f = self.facts
         domain = extract_domain(target_url) or publication
-        title = (page_title or "").strip()
+        title = clean_title(page_title)
+        if title.lower() in GENERIC_TITLES or not title:
+            key = re.sub(r"^https?://(www\.)?", "", target_url).rstrip("/")
+            title = KNOWN_HEADLINES.get(key, title)
         article = f'"{title}"' if title else "on your website"
         quoted = f'"{title}"' if title else "your recent article"
         cities = self._cities_in(f"{title} {evidence}")
@@ -193,12 +217,12 @@ class OutreachDraftGenerator:
         offer = "I would be happy to share a brief brand profile, photographs and any additional information you may need."
 
         if angle == "Unlinked Brand Mention":
-            subject = f"Thank you for featuring IA Spaces in {quoted}"
             target = f["website"]
             city_hubs = [h for c in cities for h in self._hubs_in(c)]
             if len(city_hubs) == 1:
                 target = city_hubs[0].get("Website", "").strip() or target
             named = "IA Spaces" if brand.strip().lower() in ("ia spaces", "iaspaces.co") else brand
+            subject = f"Thank you for mentioning {named} in {quoted}"
             opening = (f"I recently came across your article, {article}, and wanted to thank you for "
                        f"mentioning {named}.")
             ask = (f"We would appreciate it if you could consider mentioning IA Spaces by name in your "
@@ -246,6 +270,10 @@ class OutreachDraftGenerator:
         """Rewrite an Outreach row that this run did not rediscover, so every draft in the Sheet
         uses the current template. Returns the new Subject/Draft Email, or None if the row's
         angle cannot be worked out from its ID. Human columns are never touched."""
+        # Drafts the team has approved, sent or rejected are left exactly as they are,
+        # so edits made in the Sheet are never overwritten.
+        if (row.get("Approval Status") or "Pending Approval").strip() != "Pending Approval":
+            return None
         url = (row.get("Target URL") or "").strip()
         rid = (row.get("ID") or "").strip()
         if not url or not rid:
