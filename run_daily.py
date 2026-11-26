@@ -56,6 +56,29 @@ def is_digest_page(title: str) -> bool:
     return any(term in t for term in DIGEST_TITLE_TERMS)
 
 
+def load_known_contacts(ctx) -> Dict[str, Dict[str, str]]:
+    """Editorial contacts the team looked up by hand (data/outreach_contacts.csv), by domain."""
+    out = {}
+    for row in ctx.read_csv("data/outreach_contacts.csv"):
+        dom = (row.get("domain") or "").strip().lower()
+        if dom.startswith("www."):
+            dom = dom[4:]
+        if dom and "@" in (row.get("email") or ""):
+            out[dom] = {"email": row["email"].strip(), "source": (row.get("contact_source") or "Looked up by the team").strip()}
+    return out
+
+
+def contact_for(url: str, page_contact, known: Dict[str, Dict[str, str]]):
+    """(email, source): an address published on the page wins, then the looked-up contact."""
+    if page_contact:
+        return page_contact, "Published on the page"
+    dom = (extract_domain(url) or "").lower()
+    if dom.startswith("www."):
+        dom = dom[4:]
+    hit = known.get(dom)
+    return (hit["email"], hit["source"]) if hit else (None, None)
+
+
 def pick_unlinked(mentions: List[Dict[str, Any]]):
     """The unlinked mention to pitch. Only workspace mentions qualify (an India Accelerator
     funding story should not be asked to link to iaspaces.co); IA Spaces is preferred."""
@@ -89,6 +112,7 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
     nap_rel = ctx.settings.get("paths", {}).get("master_nap_csv", "data/ia-spaces-nap-master.csv")
     outreach = OutreachDraftGenerator(ctx.settings.get("brand_facts"), hubs=ctx.read_csv(nap_rel),
                                       sender=outreach_cfg.get("sender"))
+    known_contacts = load_known_contacts(ctx)
     discovery = DiscoveryEngine(ctx.settings, health=ctx.health,
                                 relevance_terms=list(brands) + [c["name"] for c in competitors])
 
@@ -145,10 +169,10 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
                 angle = outreach.angle_for(page_comps[0]["editorial_angle"])
             else:
                 angle = outreach.angle_for(CompetitorTracker.editorial_angle(title, body))
-            contact = pick_contact(emails)
+            contact, source = contact_for(url, pick_contact(emails), known_contacts)
             draft = outreach.generate_draft(
                 publication=cand.get("domain", ""), target_url=url, angle=angle,
-                contact_email=contact, contact_source="Published on the page" if contact else None,
+                contact_email=contact, contact_source=source,
                 page_title=title, brand=unlinked["brand"] if unlinked else "IA Spaces",
             )
             drafts[draft["id"]] = draft
@@ -163,11 +187,12 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
         unlinked = pick_unlinked(found)
         if unlinked:
             res = ctx.fetcher.fetch(url, source="mention check")
-            contact = pick_contact(find_contact_emails(res.get("html", ""), url))
+            contact, source = contact_for(url, pick_contact(find_contact_emails(res.get("html", ""), url)),
+                                          known_contacts)
             draft = outreach.generate_draft(
                 publication=extract_domain(url), target_url=unlinked["mentioned_url"],
                 angle="Unlinked Brand Mention", contact_email=contact,
-                contact_source="Published on the page" if contact else None,
+                contact_source=source,
                 page_title=unlinked.get("page_title", ""), brand=unlinked["brand"],
             )
             drafts[draft["id"]] = draft
@@ -186,7 +211,14 @@ def run_daily_pipeline(dry_run: bool = False, base_dir: str = BASE_DIR, fetcher=
     s.sync_tab("Competitors", competitor_rows)
     s.sync_tab("Backlinks", backlinks)
     # Older drafts not found again today are rewritten on the current template too
-    s.sync_tab("Outreach", draft_list, refresh_fn=outreach.refresh_existing)
+    def refresh(row):
+        updates = outreach.refresh_existing(row) or {}
+        if "@" not in (row.get("Contact Email") or ""):
+            email, source = contact_for(row.get("Target URL", ""), None, known_contacts)
+            if email:
+                updates.update({"Contact Email": email, "Contact Source": source})
+        return updates
+    s.sync_tab("Outreach", draft_list, refresh_fn=refresh)
 
     s.sync_tab("Dashboard", ctx.dashboard({
         "Total Opportunities Discovered": len(opportunities),

@@ -75,6 +75,15 @@ HUMAN_COLUMNS: Dict[str, List[str]] = {
     "Outreach": ["Approval Status", "Team Notes"],
 }
 DEFAULT_HUMAN_COLUMNS = ["Team Notes"]
+# Columns the automation fills, but where a real value typed in the Sheet wins over a placeholder
+TEAM_FILLABLE: Dict[str, List[str]] = {
+    "Outreach": ["Contact Email", "Contact Name", "Contact Source"],
+}
+PLACEHOLDERS = {"", "unverified (requires manual lookup)", "editorial team (not verified)", "not found on page"}
+
+
+def _is_placeholder(value: str) -> bool:
+    return (value or "").strip().lower() in PLACEHOLDERS
 HUMAN_DEFAULTS = {"Approval Status": "Pending Approval"}
 
 # Tabs keyed by a metric name: merged by key, never pruned, no human columns.
@@ -388,6 +397,9 @@ class GoogleSheetsClient:
                         for col in human_cols:
                             if (srow.get(col) or "").strip():
                                 rows[k][col] = srow[col]
+                        for col in TEAM_FILLABLE.get(tab_name, []):
+                            if not _is_placeholder(srow.get(col, "")):
+                                rows[k][col] = srow[col]
                 sheet_ok = True
             except Exception as e:
                 logger.warning(f"Could not read Sheet tab '{tab_name}' ({e.__class__.__name__}); "
@@ -404,6 +416,13 @@ class GoogleSheetsClient:
             for col in human_cols:
                 kept = (existing or {}).get(col, "").strip()
                 new_row[col] = kept or new_row.get(col, "").strip() or HUMAN_DEFAULTS.get(col, "")
+            # A contact the team typed in is kept unless the page itself now publishes one
+            if existing and "Contact Email" in TEAM_FILLABLE.get(tab_name, []):
+                page_found = (new_row.get("Contact Source") or "").strip() == "Published on the page"
+                if not page_found and not _is_placeholder(existing.get("Contact Email", "")):
+                    for col in TEAM_FILLABLE[tab_name]:
+                        if not _is_placeholder(existing.get(col, "")):
+                            new_row[col] = existing[col]
             rows[k] = new_row
 
         if refresh_fn is not None:

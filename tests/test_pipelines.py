@@ -278,6 +278,36 @@ class TestPipelines(unittest.TestCase):
                "Approval Status": "Approved", "Draft Email": "my own edited text"}
         self.assertIsNone(OutreachDraftGenerator().refresh_existing(row))
 
+    def test_contact_typed_in_the_sheet_is_kept(self):
+        import csv
+        from src.utils.url_utils import generate_stable_id
+        from src.sheets.sheets_client import SHEET_HEADERS
+        url = "https://economictimes.indiatimes.com/old-story"
+        rid = generate_stable_id(f"{url}::Industry Commentary", prefix="OUT")
+        cache = os.path.join(self.base, "data", "sheets_offline_cache")
+        os.makedirs(cache, exist_ok=True)
+        headers = SHEET_HEADERS["Outreach"]
+        row = {h: "" for h in headers}
+        row.update({"ID": rid, "Publication": "economictimes.indiatimes.com", "Target URL": url,
+                    "Contact Name": "Editorial Team (not verified)", "Contact Email": "reporter@example.com",
+                    "Contact Source": "Found on LinkedIn", "Draft Email": 'I came across "Old ET story" on x:',
+                    "Approval Status": "Pending Approval", "Last Seen": now_seen()})
+        with open(os.path.join(cache, "outreach.csv"), "w", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, fieldnames=headers); w.writeheader(); w.writerow(row)
+        run_daily_pipeline(base_dir=self.base, use_feeds=False, fetcher=PageFetcher({}))
+        rows = {r["ID"]: r for r in read(os.path.join(cache, "outreach.csv"))}
+        self.assertEqual(rows[rid]["Contact Email"], "reporter@example.com")
+        self.assertEqual(rows[rid]["Contact Source"], "Found on LinkedIn")
+
+    def test_looked_up_contacts_fill_unverified_drafts(self):
+        from run_daily import contact_for
+        known = {"thehosteller.com": {"email": "contact@thehosteller.com", "source": "Contact page"}}
+        self.assertEqual(contact_for("https://www.thehosteller.com/blogs/x", None, known),
+                         ("contact@thehosteller.com", "Contact page"))
+        self.assertEqual(contact_for("https://www.thehosteller.com/blogs/x", "ed@th.com", known),
+                         ("ed@th.com", "Published on the page"))
+        self.assertEqual(contact_for("https://other.in/x", None, known), (None, None))
+
     def test_hub_file_matches_the_website_sitemap(self):
         import csv
         with open(os.path.join(BASE_DIR, "data", "ia-spaces-nap-master.csv"), encoding="utf-8-sig") as fh:
